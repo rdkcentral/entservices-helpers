@@ -29,12 +29,8 @@ set (TEST_SRC
     # tests/test_UtilsFile.cpp
 )
 
-# Link against the installed WPEFrameworkHelpers shared library
-find_package(${NAMESPACE}Helpers REQUIRED)
-
 set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-    ${NAMESPACE}::${NAMESPACE}Helpers
 )
 
 # Headers are provided transitively by the installed WPEFrameworkHelpers target
@@ -110,7 +106,7 @@ endmacro()
 # PLUGIN_HELPERS — library under test is WPEFrameworkHelpers (already linked via TEST_LIB)
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
-set (HELPERS_LIBS ${NAMESPACE}::${NAMESPACE}Helpers)
+set (HELPERS_LIBS ${NAMESPACE}Helpers)
 add_plugin_test_ex(PLUGIN_HELPERS tests/test_Helpers.cpp "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})

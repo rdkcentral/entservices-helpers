@@ -46,16 +46,16 @@ string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 # for writing pc and config files
 include(CmakeHelperFunctions)
 
+if(PLUGIN_HELPERS)
+    add_subdirectory(helpers)
+endif()
+
 if(RDK_SERVICE_L2_TEST)
     add_subdirectory(Tests/L2Tests)
 endif()
 
 if(RDK_SERVICES_L1_TEST)
     add_subdirectory(Tests/L1Tests)
-endif()
-
-if(PLUGIN_HELPERS)
-    add_subdirectory(helpers)
 endif()
 
 if(WPEFRAMEWORK_CREATE_IPKG_TARGETS)
