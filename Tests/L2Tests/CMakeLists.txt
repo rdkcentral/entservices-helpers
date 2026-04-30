@@ -21,6 +21,7 @@ set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 set(THUNDER_PORT 9998)
 
 find_package(${NAMESPACE}Plugins REQUIRED)
+find_package(${NAMESPACE}Helpers REQUIRED)
 
 if(PLUGIN_HELPERS)
     set(SRC_FILES ${SRC_FILES} tests/Helpers_L2Test.cpp)
@@ -38,7 +39,9 @@ target_compile_definitions(${MODULE_NAME}
             THUNDER_PORT="${THUNDER_PORT}")
 
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error)
-target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+target_link_libraries(${MODULE_NAME} PRIVATE
+    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+    ${NAMESPACE}::${NAMESPACE}Helpers)
 
 if (NOT L2_TEST_OOP_RPC)
     find_library(TESTMOCKLIB_LIBRARIES NAMES TestMocklib)
@@ -60,7 +63,6 @@ endif (MOCKACCESSOR_LIBRARIES)
 
 target_include_directories(
     ${MODULE_NAME} PRIVATE ./
-    ../../helpers
     ../../../entservices-testframework/Tests/mocks
     ../../../entservices-testframework/Tests/mocks/thunder
     ../../../entservices-testframework/Tests/mocks/devicesettings

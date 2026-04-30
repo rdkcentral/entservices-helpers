@@ -15,29 +15,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# entservices-helpers: header-only utility library
-# The helpers/ directory contains only .h files and must be built as an
-# INTERFACE (header-only) CMake target — there are no .cpp sources to compile.
+# entservices-helpers: common shared utility library
+#
+# Compiled sources:
+#   - Module.cpp           : Thunder MODULE_NAME_DECLARATION
+#   - frontpanel.cpp       : FrontPanel utility
+#   - WebSockets/JsonRpc/Notification.cpp
+#   - WebSockets/JsonRpc/Request.cpp
+#   - WebSockets/JsonRpc/Response.cpp
+#
+# WSEndpoint.cpp is a template implementation included by its header — NOT compiled standalone.
+#
+# All .h files (including subdirectories) are installed as public headers so
+# downstream repos can use:
+#   find_package(WPEFrameworkHelpers REQUIRED)
+#   target_link_libraries(myPlugin PRIVATE WPEFramework::WPEFrameworkHelpers)
 
 set(PLUGIN_NAME Helpers)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
 find_package(${NAMESPACE}Plugins REQUIRED)
+find_package(${NAMESPACE}Definitions REQUIRED)
+find_package(CompileSettingsDebug CONFIG REQUIRED)
 
-add_library(${MODULE_NAME} INTERFACE)
+# ---- Compiled sources -------------------------------------------------------
+set(HELPERS_SOURCES
+    Module.cpp
+    frontpanel.cpp
+    WebSockets/JsonRpc/Notification.cpp
+    WebSockets/JsonRpc/Request.cpp
+    WebSockets/JsonRpc/Response.cpp
+)
 
+add_library(${MODULE_NAME} SHARED ${HELPERS_SOURCES})
+
+set_target_properties(${MODULE_NAME} PROPERTIES
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED YES)
+
+# Public include: the helpers/ root (and subdirs) — consumers get all headers
 target_include_directories(${MODULE_NAME}
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/WebSockets>
+        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>
+        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
 
-install(
-    FILES
-        PluginInterfaceBuilder.h
-        UtilsJsonRpc.h
-        UtilsLogging.h
-    DESTINATION
-        include/${STORAGE_DIRECTORY}/helpers)
+target_link_libraries(${MODULE_NAME}
+    PRIVATE
+        CompileSettingsDebug::CompileSettingsDebug
+        ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+        ${NAMESPACE}Definitions::${NAMESPACE}Definitions)
 
+# ---- Install shared library --------------------------------------------------
 install(TARGETS ${MODULE_NAME}
-    EXPORT ${MODULE_NAME}Targets)
+    EXPORT  ${MODULE_NAME}Targets
+    DESTINATION lib/${STORAGE_DIRECTORY}/plugins)
+
+# ---- Install all public headers preserving directory structure ---------------
+# GLOB_RECURSE picks up every .h/.hpp/.cpp in helpers/ and its subdirectories.
+# WSEndpoint.cpp is intentionally included here: it is a template implementation
+# that must be installed as a header (consumers #include it via WSEndpoint.h).
+# The compiled .cpp sources (frontpanel.cpp, Module.cpp, WebSockets/JsonRpc/*.cpp)
+# are excluded from the glob because they are already listed in HELPERS_SOURCES above.
+file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
+    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    "*.h"
+    "*.hpp"
+    "WebSockets/WSEndpoint.cpp"
+)
+
+# Install each header into the mirror subdirectory under the install prefix so
+# that the full directory tree is preserved (e.g. WebSockets/JsonRpc/Request.h
+# installs to include/<ns>/helpers/WebSockets/JsonRpc/Request.h).
+foreach(HEADER_FILE ${HELPERS_PUBLIC_HEADERS})
+    get_filename_component(HEADER_DIR "${HEADER_FILE}" DIRECTORY)
+    install(
+        FILES       "${HEADER_FILE}"
+        DESTINATION "include/${STORAGE_DIRECTORY}/helpers/${HEADER_DIR}")
+endforeach()
+
+# ---- Export CMake targets for find_package() --------------------------------
+install(EXPORT ${MODULE_NAME}Targets
+    FILE        ${MODULE_NAME}Targets.cmake
+    NAMESPACE   ${NAMESPACE}::
+    DESTINATION lib/cmake/${MODULE_NAME})

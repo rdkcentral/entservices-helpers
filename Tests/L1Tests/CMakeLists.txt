@@ -29,11 +29,16 @@ set (TEST_SRC
     # tests/test_UtilsFile.cpp
 )
 
+# Link against the installed WPEFrameworkHelpers shared library
+find_package(${NAMESPACE}Helpers REQUIRED)
+
 set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+    ${NAMESPACE}::${NAMESPACE}Helpers
 )
 
-set (TEST_INC ../../helpers)
+# Headers are provided transitively by the installed WPEFrameworkHelpers target
+set (TEST_INC)
 
 #########################################################################################
 # add_plugin_test_ex: Macro to add plugin tests, it will append to TEST_SRC, TEST_INC,
@@ -102,9 +107,10 @@ macro(add_plugin_test plugin_name test_files)
     add_plugin_test_ex(${plugin_opt} "${test_files}" "../../${plugin_name}" "${NAMESPACE}${plugin_name}")
 endmacro()
 
-# PLUGIN_HELPERS
-set (HELPERS_INC ${CMAKE_SOURCE_DIR}/../entservices-helpers/helpers ${CMAKE_SOURCE_DIR}/../entservices-helpers/helpers)
-set (HELPERS_LIBS ${NAMESPACE}Helpers ${NAMESPACE}HelpersImplementation)
+# PLUGIN_HELPERS — library under test is WPEFrameworkHelpers (already linked via TEST_LIB)
+# Source-tree -I flags are not needed: headers come from the installed target
+set (HELPERS_INC)
+set (HELPERS_LIBS ${NAMESPACE}::${NAMESPACE}Helpers)
 add_plugin_test_ex(PLUGIN_HELPERS tests/test_Helpers.cpp "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
