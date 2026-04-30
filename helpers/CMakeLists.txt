@@ -100,3 +100,11 @@ install(EXPORT ${MODULE_NAME}Targets
     FILE        ${MODULE_NAME}Targets.cmake
     NAMESPACE   ${NAMESPACE}::
     DESTINATION lib/cmake/${MODULE_NAME})
+
+# ---- Generate WPEFrameworkHelpersConfig.cmake --------------------------------
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
+    "include(\"\${CMAKE_CURRENT_LIST_DIR}/${MODULE_NAME}Targets.cmake\")\n")
+
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
+    DESTINATION "lib/cmake/${MODULE_NAME}")
