@@ -41,7 +41,6 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 # ---- Compiled sources -------------------------------------------------------
 set(HELPERS_SOURCES
     Module.cpp
-    frontpanel.cpp
     WebSockets/JsonRpc/Notification.cpp
     WebSockets/JsonRpc/Request.cpp
     WebSockets/JsonRpc/Response.cpp
