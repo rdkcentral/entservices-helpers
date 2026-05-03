@@ -28,6 +28,7 @@
 #ifndef FRONTPANEL_H
 #define FRONTPANEL_H
 
+#include "Module.h"
 #include <string>
 #include <list>
 #include <vector>
