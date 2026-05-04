@@ -327,6 +327,24 @@ jobs:
           &&
           cmake --install build/googletest
 
+      - name: Build and install entservices-helpers library
+        run: >
+          cmake -G Ninja
+          -S "$GITHUB_WORKSPACE/entservices-helpers"
+          -B build/entservices-helpers-lib
+          -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr"
+          -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/install/usr"
+          -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake"
+          -DCOMCAST_CONFIG=OFF
+          -DUSE_THUNDER_R4=ON
+          -DHIDE_NON_EXTERNAL_SYMBOLS=OFF
+          -DPLUGIN_HELPERS=ON
+          -DRDK_SERVICES_L1_TEST=OFF
+          &&
+          cmake --build build/entservices-helpers-lib
+          &&
+          cmake --install build/entservices-helpers-lib
+
       - name: Build mocks
         run: >
           cmake
