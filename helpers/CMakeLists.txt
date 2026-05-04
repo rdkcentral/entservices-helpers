@@ -35,7 +35,6 @@ set(PLUGIN_NAME Helpers)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
 find_package(${NAMESPACE}Plugins REQUIRED)
-find_package(${NAMESPACE}Definitions REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
 # ---- Compiled sources -------------------------------------------------------
@@ -63,8 +62,7 @@ target_include_directories(${MODULE_NAME}
 target_link_libraries(${MODULE_NAME}
     PRIVATE
         CompileSettingsDebug::CompileSettingsDebug
-        ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-        ${NAMESPACE}Definitions::${NAMESPACE}Definitions)
+        ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
 
 # ---- Install shared library --------------------------------------------------
 install(TARGETS ${MODULE_NAME}
