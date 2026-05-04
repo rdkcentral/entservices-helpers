@@ -327,7 +327,7 @@ jobs:
           &&
           cmake --install build/googletest
 
-      - name: Install entservices-helpers headers
+      - name: Build and install entservices-helpers library
         run: >
           cmake -G Ninja
           -S "$GITHUB_WORKSPACE/entservices-helpers"
@@ -343,7 +343,7 @@ jobs:
           &&
           cmake --build build/entservices-helpers-lib
           &&
-          cmake --install build/entservices-helpers-lib --component Unspecified
+          cmake --install build/entservices-helpers-lib 
 
       - name: Build mocks
         run: >
