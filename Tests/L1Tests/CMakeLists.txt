@@ -107,7 +107,7 @@ endmacro()
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
-add_plugin_test_ex(PLUGIN_HELPERS "tests/test_Helpers.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helpers.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
