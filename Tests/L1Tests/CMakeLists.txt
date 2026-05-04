@@ -107,7 +107,8 @@ endmacro()
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
-add_plugin_test_ex(PLUGIN_HELPERS tests/test_Helpers.cpp "${HELPERS_INC}" "${HELPERS_LIBS}")
+# No helper test source is currently present under Tests/, so do not register
+# a PLUGIN_HELPERS test target until a real tests/test_Helpers.cpp is added.
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
