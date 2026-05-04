@@ -31,12 +31,11 @@
  * Newer APIs should return only error code to match the spec
  */
 
-#define returnResponse(expression) \
+#define returnResponse(success) \
     { \
-        bool successBoolean = expression; \
-        response["success"] = successBoolean; \
+        response["success"] = success; \
         LOGTRACEMETHODFIN(); \
-        return (successBoolean ? WPEFramework::Core::ERROR_NONE : WPEFramework::Core::ERROR_GENERAL); \
+         return (WPEFramework::Core::ERROR_NONE); \
     }
 #define returnIfParamNotFound(param, name) \
     if (!param.HasLabel(name)) \
@@ -48,13 +47,13 @@
     if (!param.HasLabel(name) || param[name].Content() != WPEFramework::Core::JSON::Variant::type::STRING) \
     {\
         LOGERR("No argument '%s' or it has incorrect type", name); \
-        returnResponse(false); \
+        (false); \
     }
 #define returnIfBooleanParamNotFound(param, name) \
     if (!param.HasLabel(name) || param[name].Content() != WPEFramework::Core::JSON::Variant::type::BOOLEAN) \
     { \
         LOGERR("No argument '%s' or it has incorrect type", name); \
-        returnResponse(false); \
+        (false); \
     }
 #define returnIfNumberParamNotFound(param, name) \
     if (!param.HasLabel(name) || param[name].Content() != WPEFramework::Core::JSON::Variant::type::NUMBER) \
