@@ -46,20 +46,20 @@ struct IARM {
         bool result = false;
 
         if (isConnected()) {
-            LOGINFO("IARM already connected");
+            LOGINFO(" predebug IARM already connected");
             result = true;
         } else {
             unsigned int retryCount = 0;
             do
             {
                 res = IARM_Bus_Init(NAME);
-                LOGINFO("IARM_Bus_Init: %d", res);
+                LOGINFO("predebug IARM_Bus_Init: %d", res);
                 if (res == IARM_RESULT_SUCCESS || res == IARM_RESULT_INVALID_STATE /* already inited or connected */) {
                     res = IARM_Bus_Connect();
                     LOGINFO("IARM_Bus_Connect: %d", res);
                     if (res == IARM_RESULT_SUCCESS || res == IARM_RESULT_INVALID_STATE /* already connected or not inited */) {
                         result = isConnected();
-                        LOGERR("ARM_Bus_Connect result: %d res: %d retryCount :%d ",result, res, retryCount);
+                        LOGERR("IARM_Bus_Connect result: %d res: %d retryCount :%d ",result, res, retryCount);
                     } else {
                         LOGERR("IARM_Bus_Connect failure:result :%d res: %d retryCount :%d ",result, res, retryCount);
                     }
@@ -80,7 +80,7 @@ struct IARM {
         IARM_Result_t res;
         int isRegistered = 0;
         res = IARM_Bus_IsConnected(NAME, &isRegistered);
-        LOGINFO("IARM_Bus_IsConnected: res:%d  isRegistered (%d)", res, isRegistered);
+        LOGINFO("predebug IARM_Bus_IsConnected: res:%d  isRegistered (%d)", res, isRegistered);
 
         return (isRegistered == 1);
     }
