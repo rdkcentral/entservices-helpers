@@ -40,9 +40,9 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 # ---- Compiled sources -------------------------------------------------------
 set(HELPERS_SOURCES
     Module.cpp
-    WebSockets/JsonRpc/Notification.cpp
-    WebSockets/JsonRpc/Request.cpp
-    WebSockets/JsonRpc/Response.cpp
+    #    WebSockets/JsonRpc/Notification.cpp
+    # WebSockets/JsonRpc/Request.cpp
+    #WebSockets/JsonRpc/Response.cpp
 )
 
 add_library(${MODULE_NAME} SHARED ${HELPERS_SOURCES})
@@ -55,9 +55,9 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 target_include_directories(${MODULE_NAME}
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/WebSockets>
-        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>
-        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
+	#   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/WebSockets>
+        $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>)
+	# $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
@@ -79,7 +79,7 @@ file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     "*.h"
     "*.hpp"
-    "WebSockets/WSEndpoint.cpp"
+    # "WebSockets/WSEndpoint.cpp"
 )
 
 # Install each header into the mirror subdirectory under the install prefix so
