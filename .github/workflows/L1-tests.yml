@@ -19,6 +19,7 @@ env:
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME}}
   AUTOMATICS_PASSCODE: ${{ secrets. AUTOMATICS_PASSCODE}}
   ENABLE_CACHE: "false"
+  SKIP_COVERAGE: "true"
 
 jobs:
   L1-tests:
@@ -678,7 +679,7 @@ jobs:
           rm -rf $(pwd)/rdkL1TestResults.json
 
       - name: Generate coverage
-        if: ${{ matrix.coverage == 'with-coverage' && !env.ACT && inputs.caller_source != 'testframework' }}
+        if: ${{ !env.SKIP_COVERAGE &&matrix.coverage == 'with-coverage' && !env.ACT && inputs.caller_source != 'testframework' }}
         run: >
           cp $GITHUB_WORKSPACE/entservices-testframework/Tests/L1Tests/.lcovrc_l1 ~/.lcovrc
           &&
@@ -703,6 +704,7 @@ jobs:
           filtered_coverage.info
 
       - name: Upload artifacts
+        if: ${{ !env.SKIP_COVERAGE }}
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-L1-helpers
