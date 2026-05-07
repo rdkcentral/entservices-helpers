@@ -58,7 +58,8 @@ namespace Plugin {
 
         // use move
         PluginInterfaceRef(PluginInterfaceRef&& other)
-             : _interface(other._interface), _service(other._service)
+            : _interface(other._interface)
+            , _service(other._service)
         {
             other._interface = nullptr;
             other._service = nullptr;
@@ -198,11 +199,15 @@ namespace Plugin {
             return std::move(PluginInterfaceRef<INTERFACE>(interface, _service));
         }
 
+         // Coverity fix: Remove redundant const from primitive return type
+        // const qualifier on return value of primitive types is meaningless
         uint32_t retryInterval() const
         {
             return _retryInterval;
         }
 
+        // Coverity fix: Remove redundant const from primitive return type
+        // const qualifier on return value of primitive types is meaningless
         int retryCount() const
         {
             return _retryCount;

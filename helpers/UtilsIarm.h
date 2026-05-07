@@ -46,7 +46,7 @@ struct IARM {
         bool result = false;
 
         if (isConnected()) {
-            LOGINFO("preeja IARM already connected");
+            LOGINFO("IARM already connected");
             result = true;
         } else {
             unsigned int retryCount = 0;
@@ -80,7 +80,7 @@ struct IARM {
         IARM_Result_t res;
         int isRegistered = 0;
         res = IARM_Bus_IsConnected(NAME, &isRegistered);
-        LOGINFO("preeja IARM_Bus_IsConnected: res:%d  isRegistered (%d)", res, isRegistered);
+        LOGINFO("IARM_Bus_IsConnected: res:%d  isRegistered (%d)", res, isRegistered);
 
         return (isRegistered == 1);
     }
