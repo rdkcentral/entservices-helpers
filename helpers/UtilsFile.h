@@ -23,13 +23,14 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <sstream>
+
+using namespace std;
 
 namespace Utils
 {
-inline auto MoveFile(
-    const std::string &from,
-    const std::string &to) -> bool
+auto MoveFile(
+    const string &from,
+    const string &to) -> bool
 {
     using namespace WPEFramework::Core;
 
@@ -88,14 +89,14 @@ inline auto MoveFile(
 * @param[out] res_str - The last non empty line from the input string
 * @return whether or not a non empty line was found
 */
-inline bool getLastLine(const std::string& input, std::string& res_str)
+bool getLastLine(const std::string& input, std::string& res_str)
 {
-    std::string read_line = "";
+    string read_line = "";
     bool ret_value = false;
 
     if (!input.empty())
     {
-        std::stringstream read_str(input);
+        stringstream read_str(input);
         while (getline(read_str, read_line, '\n'))
         {
             if (!read_line.empty())
