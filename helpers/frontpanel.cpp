@@ -51,6 +51,7 @@ using PowerState = WPEFramework::Exchange::IPowerManager::PowerState;
 #include "UtilsLogging.h"
 #include "UtilssyncPersistFile.h"
 #include "PowerManagerInterface.h"
+#include "UtilsSearchRDKProfile.h"
 
 #define FP_SETTINGS_FILE_JSON "/opt/fp_service_preferences.json"
 
@@ -68,15 +69,11 @@ namespace WPEFramework
     {
         CFrontPanel* CFrontPanel::s_instance = NULL;
         static int globalLedBrightness = 100;
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-        static int clockBrightness = 100;
-#endif
+
         int CFrontPanel::initDone = 0;
         static bool isMessageLedOn = false;
         static bool isRecordLedOn = false;
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-        static bool isClockOn;
-#endif
+
         static bool powerStatus = false;     //Check how this works on xi3 and rng's
         static bool started = false;
         static int m_numberOfBlinks = 0;
@@ -144,6 +141,9 @@ namespace WPEFramework
 #ifdef USE_DS
                 try
                 {
+                    LOGINFO("Initializing device manager");
+                    device::Manager::Initialize();
+
                     LOGINFO("Front panel init");
                     fpIndicators = device::FrontPanelConfig::getInstance().getIndicators();
 
@@ -154,7 +154,7 @@ namespace WPEFramework
                         auto it = std::find(m_lights.begin(), m_lights.end(), IndicatorNameIarm);
                         if (m_lights.end() == it)
                         {
-                            m_lights.push_back(IndicatorNameIarm);
+                            m_lights.push_back(std::move(IndicatorNameIarm));
                         }
                     }
 
@@ -171,26 +171,32 @@ namespace WPEFramework
                                 if (pwrStateCur == WPEFramework::Exchange::IPowerManager::POWER_STATE_ON)
                                     powerStatus = true;
                             }
+                            LOGINFO("pwrStateCur[%d] pwrStatePrev[%d] powerStatus[%d]", pwrStateCur, pwrStatePrev, powerStatus);
                         }
                     }
 #endif
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-                    clockBrightness =  device::FrontPanelTextDisplay::getInstance("Text").getTextBrightness();
-                    device::FrontPanelTextDisplay::getInstance("Text").setTextBrightness(clockBrightness);
-#endif
+
                     globalLedBrightness = device::FrontPanelIndicator::getInstance("Power").getBrightness();
                     LOGINFO("Power light brightness, %d, power status %d", globalLedBrightness, powerStatus);
 
-                    for (uint i = 0; i < fpIndicators.size(); i++)
-                    {
-                        LOGWARN("Initializing light %s", fpIndicators.at(i).getName().c_str());
-                        if (powerStatus)
-                            device::FrontPanelIndicator::getInstance(fpIndicators.at(i).getName()).setBrightness(globalLedBrightness);
+		    profileType = searchRdkProfile();
+		    if (TV != profileType)
+		    {
+                        for (uint i = 0; i < fpIndicators.size(); i++)
+			{
+                            LOGWARN("Initializing light %s", fpIndicators.at(i).getName().c_str());
+			    if (powerStatus)
+                                device::FrontPanelIndicator::getInstance(fpIndicators.at(i).getName()).setBrightness(globalLedBrightness, false);
 
-                        device::FrontPanelIndicator::getInstance(fpIndicators.at(i).getName()).setState(false);
-                    }
+			    device::FrontPanelIndicator::getInstance(fpIndicators.at(i).getName()).setState(false);
+			}
+		    }
+		    else
+		    {
+                        LOGWARN("Power LED Initializing is not set since we continue with bootloader patern");
+		    }
 
-                    if (powerStatus)
+		    if (powerStatus)
                         device::FrontPanelIndicator::getInstance("Power").setState(true);
 
                 }
@@ -203,6 +209,33 @@ namespace WPEFramework
             }
 
             return s_instance;
+        }
+
+
+        void CFrontPanel::deinitialize()
+        {
+
+            s_instance->stop();
+            
+            if (_powerManagerPlugin) {
+                _powerManagerPlugin.Reset();
+            }
+            if (s_instance) {
+                delete s_instance;
+                s_instance = nullptr;
+            }
+#ifdef USE_DS
+            try
+            {
+                device::Manager::DeInitialize();
+                LOGINFO("device::Manager::DeInitialize success");
+            }
+            catch(const std::exception& e)
+            {
+                LOGERR("device::Manager::DeInitialize failed, Exception: {%s}", e.what());
+            }
+#endif
+            initDone = 0;
         }
 
         bool CFrontPanel::start()
@@ -220,7 +253,7 @@ namespace WPEFramework
 
                     auto it = std::find(m_lights.begin(), m_lights.end(), IndicatorNameIarm);
                     if (m_lights.end() == it)
-                        m_lights.push_back(IndicatorNameIarm);
+                        m_lights.push_back(std::move(IndicatorNameIarm));
                 }
             }
             catch (...)
@@ -253,7 +286,7 @@ namespace WPEFramework
             return lastError_;
         }
 
-        void CFrontPanel::addEventObserver(FrontPanel* o)
+        void CFrontPanel::addEventObserver(FrontPanelImplementation* o)
         {
 
             auto it = std::find(observers_.begin(), observers_.end(), o);
@@ -262,7 +295,7 @@ namespace WPEFramework
                 observers_.push_back(o);
         }
 
-        void CFrontPanel::removeEventObserver(FrontPanel* o)
+        void CFrontPanel::removeEventObserver(FrontPanelImplementation* o)
         {
             observers_.remove(o);
         }
@@ -303,29 +336,6 @@ namespace WPEFramework
             return globalLedBrightness;
         }
 
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-        bool CFrontPanel::setClockBrightness(int brightness)
-        {
-            clockBrightness = brightness;
-            powerOnLed(FRONT_PANEL_INDICATOR_CLOCK);
-            return true;
-        }
-
-        int CFrontPanel::getClockBrightness()
-        {
-            try
-            {
-                clockBrightness =  device::FrontPanelTextDisplay::getInstance("Text").getTextBrightness();
-            }
-            catch (...)
-            {
-                LOGERR("FrontPanel Exception Caught during [%s]\r\n", __func__);
-            }
-
-            return clockBrightness;
-        }
-#endif
-
         bool CFrontPanel::powerOnLed(frontPanelIndicator fp_indicator)
         {
             stopBlinkTimer();
@@ -335,12 +345,6 @@ namespace WPEFramework
                 {
                     switch (fp_indicator)
                     {
-                    case FRONT_PANEL_INDICATOR_CLOCK:
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-                        isClockOn = true;
-                        device::FrontPanelTextDisplay::getInstance("Text").setTextBrightness(clockBrightness);
-#endif
-                        break;
                     case FRONT_PANEL_INDICATOR_MESSAGE:
                         isMessageLedOn = true;
                         device::FrontPanelIndicator::getInstance("Message").setState(true);
@@ -366,6 +370,8 @@ namespace WPEFramework
                         //LOGWARN("CFrontPanel::powerOnLed() - FRONT_PANEL_INDICATOR_POWER not handled");
 			device::FrontPanelIndicator::getInstance("Power").setState(true);
                         break;
+                    default:
+                        LOGERR("Invalid Indicator %d", fp_indicator);
                     }
                 }
             }
@@ -384,12 +390,6 @@ namespace WPEFramework
             {
                 switch (fp_indicator)
                 {
-                case FRONT_PANEL_INDICATOR_CLOCK:
-#ifdef CLOCK_BRIGHTNESS_ENABLED
-                    isClockOn = false;
-                    device::FrontPanelTextDisplay::getInstance("Text").setTextBrightness(0);
-#endif
-                    break;
                 case FRONT_PANEL_INDICATOR_MESSAGE:
                     isMessageLedOn = false;
                     device::FrontPanelIndicator::getInstance("Message").setState(false);
@@ -416,6 +416,8 @@ namespace WPEFramework
                     //LOGWARN("CFrontPanel::powerOffLed() - FRONT_PANEL_INDICATOR_POWER not handled");
 		    device::FrontPanelIndicator::getInstance("Power").setState(false);
                     break;
+                default:
+                    LOGERR("Invalid Indicator %d", fp_indicator);
                 }
             }
             catch (...)
@@ -451,7 +453,7 @@ namespace WPEFramework
                 getNumberParameter("brightness", brightness);
 
             unsigned int color = 0;
-            if (parameters.HasLabel("color")) //color mode 2
+            if (parameters.HasLabel("color") && !parameters["color"].String().empty()) //color mode 2
             {
                 string colorString = parameters["color"].String();
                 try
@@ -488,7 +490,7 @@ namespace WPEFramework
             try
             {
                 if (brightness == -1)
-                    brightness = device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).getBrightness();
+                    brightness = device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).getBrightness(true);
 
                 device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).setBrightness(brightness, false);
                 success = true;
@@ -526,7 +528,7 @@ namespace WPEFramework
                 if (frontPanelBlinkHash.HasLabel("color")) //color mode 2
                 {
                     string color = frontPanelBlinkHash["color"].String();
-                    frontPanelBlinkInfo.colorName = color;
+                    frontPanelBlinkInfo.colorName = std::move(color);
                     frontPanelBlinkInfo.colorMode = 2;
                 }
                 else if (frontPanelBlinkHash.HasLabel("red")) //color mode 1
@@ -544,44 +546,9 @@ namespace WPEFramework
                 {
                     frontPanelBlinkInfo.colorMode = 0;
                 }
-                m_blinkList.push_back(frontPanelBlinkInfo);
+                m_blinkList.push_back(std::move(frontPanelBlinkInfo));
             }
             startBlinkTimer(iterations);
-        }
-
-        JsonObject CFrontPanel::getPreferences()
-        {
-            return m_preferencesHash;
-        }
-
-        void CFrontPanel::setPreferences(const JsonObject& preferences)
-        {
-            m_preferencesHash = preferences;
-
-            Core::File file;
-            file = FP_SETTINGS_FILE_JSON;
-
-            file.Open(false);
-            if (!file.IsOpen())
-                file.Create();
-
-            m_preferencesHash.IElement::ToFile(file);
-
-            file.Close();
-            Utils::syncPersistFile (FP_SETTINGS_FILE_JSON);
-        }
-
-        void CFrontPanel::loadPreferences()
-        {
-            m_preferencesHash.Clear();
-
-            Core::File file;
-            file = FP_SETTINGS_FILE_JSON;
-
-            file.Open();
-            m_preferencesHash.IElement::FromFile(file);
-
-            file.Close();
         }
 
         void CFrontPanel::startBlinkTimer(int numberOfBlinkRepeats)
@@ -628,7 +595,7 @@ namespace WPEFramework
             try
             {
                 if (brightness == -1)
-                    brightness = device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).getBrightness();
+                    brightness = device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).getBrightness(true);
 
                 device::FrontPanelIndicator::getInstance(ledIndicator.c_str()).setBrightness(brightness, false);
             }
@@ -661,41 +628,6 @@ namespace WPEFramework
             }
 
             //if not blink again then the led color should stay on the LAST element in the array as stated in the spec
-        }
-
-        void CFrontPanel::set24HourClock(bool is24Hour)
-        {
-            try
-            {
-                int newFormat = is24Hour ? device::FrontPanelTextDisplay::kModeClock24Hr : device::FrontPanelTextDisplay::kModeClock12Hr;
-                device::FrontPanelTextDisplay &textDisplay = device::FrontPanelConfig::getInstance().getTextDisplay("Text");
-                int currentFormat = textDisplay.getCurrentTimeFormat();
-                LOGINFO("set24HourClock - Before setting %d - Time zone read from DS is %d", newFormat, currentFormat);
-                textDisplay.setTimeFormat(newFormat);
-                currentFormat = textDisplay.getCurrentTimeFormat();
-                LOGINFO("set24HourClock - After setting %d - Time zone read from DS is %d", newFormat, currentFormat);
-            }
-            catch (...)
-            {
-                LOGERR("Exception Caught during set24HourClock");
-            }
-        }
-
-        bool CFrontPanel::is24HourClock()
-        {
-            bool is24Hour = false;
-            try
-            {
-                device::FrontPanelTextDisplay &textDisplay = device::FrontPanelConfig::getInstance().getTextDisplay("Text");
-                int currentFormat = textDisplay.getCurrentTimeFormat();
-                LOGINFO("is24HourClock - Time zone read from DS is %d", currentFormat);
-                is24Hour = currentFormat == device::FrontPanelTextDisplay::kModeClock24Hr;
-            }
-            catch (...)
-            {
-                LOGERR("Exception Caught during is24HourClock");
-            }
-            return is24Hour;
         }
 
         uint64_t BlinkInfo::Timed(const uint64_t scheduledTime)
