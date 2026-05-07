@@ -28,7 +28,7 @@ cd ${GITHUB_WORKSPACE}
 #1. Install Dependencies and packages
 
 apt update
-apt install -y libcurl4-openssl-dev valgrind lcov clang libsystemd-dev curl
+apt install -y libcurl4-openssl-dev valgrind lcov clang libsystemd-dev curl libdrm-dev
 pip install jsonref
 ###########################################
 # Clone the required repositories
