@@ -28,19 +28,8 @@ cd ${GITHUB_WORKSPACE}
 #1. Install Dependencies and packages
 
 apt update
-apt install -y libcurl4-openssl-dev valgrind lcov clang libsystemd-dev meson curl libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+apt install -y libcurl4-openssl-dev valgrind lcov clang libsystemd-dev curl
 pip install jsonref
-
-############################
-# Build trevor-base64
-if [ ! -d "trower-base64" ]; then
-git clone https://github.com/xmidt-org/trower-base64.git
-fi
-cd trower-base64
-meson setup --warnlevel 3 --werror build
-ninja -C build
-ninja -C build install
-cd ..
 ###########################################
 # Clone the required repositories
 

@@ -27,24 +27,12 @@ option(USE_IARM_BUS "USE_IARM_BUS" ON)
 
 add_definitions (-DUSE_IARMBUS)
 
-add_definitions (-DUSE_TR_69)
-add_definitions (-DHAS_API_SYSTEM)
 add_definitions(-DRDK_LOG_MILESTONE)
 
 add_definitions (-DUSE_DS)
 
 option(PLUGIN_HELPERS "PLUGIN_HELPERS" ON)
-option(PLUGIN_TELEMETRY "PLUGIN_TELEMETRY" ON)
-option(PLUGIN_CONTINUEWATCHING "PLUGIN_CONTINUEWATCHING" ON)
 
-add_definitions (-DPLUGIN_CONTINUEWATCHING)
-option(PLUGIN_CONTINUEWATCHING "PLUGIN_CONTINUEWATCHING" ON)
-
-if(PLUGIN_CONTINUEWATCHING)
-    if(CONTINUEWATCHING_DISABLE_SECAPI)
-        add_definitions (-DDISABLE_SECAPI)
-    endif()
-endif()
 
 if (BUILD_DBUS)
     message("Building for DBUS")
@@ -55,16 +43,9 @@ if (BUILD_DBUS)
     option(IARM_USE_DBUS "IARM_USE_DBUS" ON)
 endif()
 
-if (BUILD_ENABLE_TELEMETRY_LOGGING)
-    message("Building with telemetry logging")
-    add_definitions (-DENABLE_TELEMETRY_LOGGING)
-endif()
 
 if (ENABLE_RFC_MANAGER)
     message("Using binary for RFC Maintenance task")
     add_definitions (-DENABLE_RFC_MANAGER=ON)
 endif()
 
-if(BUILD_ENABLE_ERM)
-        add_definitions(-DENABLE_ERM)
-endif()
