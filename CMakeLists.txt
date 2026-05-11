@@ -20,7 +20,16 @@
 cmake_minimum_required(VERSION 3.3)
 
 project(EntServicesHelpers)
+
+# FindDS.cmake, FindIARMBus.cmake etc. live in cmake/
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
+
 find_package(WPEFramework)
+
+option(COMCAST_CONFIG "Comcast services configuration" ON)
+if(COMCAST_CONFIG)
+    include(services.cmake)
+endif()
 
 # Library installation section
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)

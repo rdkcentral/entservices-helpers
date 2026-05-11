@@ -40,6 +40,8 @@ git clone --branch R4.4.1 https://github.com/rdkcentral/Thunder.git
 
 git clone --branch develop https://github.com/rdkcentral/entservices-testframework.git
 
+git clone --branch develop https://github.com/rdkcentral/entservices-apis.git
+
 ############################
 # Build Thunder-Tools
 echo "======================================================================================"
@@ -84,13 +86,59 @@ cmake -G Ninja -S Thunder -B build/Thunder \
 cmake --build build/Thunder --target install
 
 ############################
+# Build entservices-apis
+echo "======================================================================================"
+echo "buliding entservices-apis"
+cd entservices-apis
+rm -rf jsonrpc/DTV.json
+cd ..
+
+cmake -G Ninja -S entservices-apis -B build/entservices-apis \
+    -DEXCEPTIONS_ENABLE=ON \
+    -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" \
+    -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake" \
+
+cmake --build build/entservices-apis --target install
+
+############################
 # generating minimal mock headers
 cd $GITHUB_WORKSPACE/entservices-testframework/Tests
 mkdir -p headers
+mkdir -p headers/rdk/ds
+mkdir -p headers/rdk/iarmbus
+mkdir -p headers/rdk/iarmmgrs-hal
+mkdir -p headers/proc
 cd headers
 touch secure_wrapper.h
 touch wpa_ctrl.h
 touch rdk_logger_milestone.h
+touch rdk/iarmbus/libIARM.h
+touch rdk/iarmbus/libIBus.h
+touch rdk/iarmbus/libIBusDaemon.h
+touch rdk/iarmmgrs-hal/deepSleepMgr.h
+touch rdk/iarmmgrs-hal/mfrMgr.h
+touch rdk/iarmmgrs-hal/sysMgr.h
+touch rdk/ds/audioOutputPort.hpp
+touch rdk/ds/compositeIn.hpp
+touch rdk/ds/dsDisplay.h
+touch rdk/ds/dsError.h
+touch rdk/ds/dsMgr.h
+touch rdk/ds/dsTypes.h
+touch rdk/ds/dsUtl.h
+touch rdk/ds/exception.hpp
+touch rdk/ds/hdmiIn.hpp
+touch rdk/ds/host.hpp
+touch rdk/ds/list.hpp
+touch rdk/ds/manager.hpp
+touch rdk/ds/sleepMode.hpp
+touch rdk/ds/videoDevice.hpp
+touch rdk/ds/videoOutputPort.hpp
+touch rdk/ds/videoOutputPortConfig.hpp
+touch rdk/ds/videoOutputPortType.hpp
+touch rdk/ds/videoResolution.hpp
+touch rdk/ds/frontPanelIndicator.hpp
+touch rdk/ds/frontPanelConfig.hpp
+touch rdk/ds/frontPanelTextDisplay.hpp
 cd $GITHUB_WORKSPACE
 
 ls -la ${GITHUB_WORKSPACE}
