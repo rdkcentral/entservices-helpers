@@ -107,7 +107,24 @@ endmacro()
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
-add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helpers.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+
+set (HELPERS_TEST_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helpers.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsBIT.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsCStr.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsUnused.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsfileExists.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsisValidInt.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsString.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsFile.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsgetFileContent.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsLogging.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsThreadRAII.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsTelemetry.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSearchRDKProfile.cpp"
+)
+
+add_plugin_test_ex(PLUGIN_HELPERS "${HELPERS_TEST_SOURCES}" "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 

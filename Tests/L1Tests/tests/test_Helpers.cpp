@@ -17,10 +17,25 @@
  * limitations under the License.
  **/
 
-#include <gtest/gtest.h>
-#include "UtilsLogging.h"
+// Main GTest entry point for entservices-helpers L1 tests.
+// Individual test suites are compiled from their own translation units:
+//   test_UtilsBIT.cpp              — bit manipulation macros (UtilsBIT.h)
+//   test_UtilsCStr.cpp             — C_STR macro (UtilsCStr.h)
+//   test_UtilsUnused.cpp           — UNUSED macro (UtilsUnused.h)
+//   test_UtilsfileExists.cpp       — Utils::fileExists (UtilsfileExists.h)
+//   test_UtilsisValidInt.cpp       — Utils::isValidInt/isValidUnsignedInt
+//   test_UtilsString.cpp           — Utils::String namespace functions
+//   test_UtilsFile.cpp             — Utils::getLastLine (UtilsFile.h)
+//   test_UtilsgetFileContent.cpp   — readPropertyFromFile, readFileContent, …
+//   test_UtilsLogging.cpp          — logging macro smoke tests
+//   test_UtilsThreadRAII.cpp       — Utils::ThreadRAII class
+//   test_UtilsTelemetry.cpp        — Utils::Telemetry struct
+//   test_UtilsSearchRDKProfile.cpp — searchRdkProfile / profile_t
 
-TEST(HelpersTest, Placeholder)
+#include <gtest/gtest.h>
+
+int main(int argc, char** argv)
 {
-    SUCCEED();
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
