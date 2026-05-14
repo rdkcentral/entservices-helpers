@@ -18,9 +18,27 @@
  **/
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <list>
+#include <locale>
+#include <string>
+#include <unistd.h>
+#include <vector>
+#include <core/core.h>
+
+using namespace std;
+
+#ifndef TCHAR
+using TCHAR = char;
+#endif
+
+#ifndef _T
+#define _T(x) x
+#endif
+
 #include <sys/stat.h>
 #include "UtilsgetFileContent.h"
 
@@ -33,7 +51,8 @@ static std::string writeTempFile(const char* content)
     char tmpl[] = "/tmp/utils_content_XXXXXX";
     int fd = mkstemp(tmpl);
     if (fd >= 0) {
-        write(fd, content, strlen(content));
+        const ssize_t written = write(fd, content, strlen(content));
+        (void)written;
         close(fd);
     }
     return std::string(tmpl);
@@ -109,9 +128,8 @@ TEST(ReadPropertyFromFileTest, EmptyValue_ReturnsEmptyString)
 {
     std::string path = writeTempFile("EMPTY=\n");
     std::string val = "unchanged";
-    // property found but value is empty — found=true, val=""
-    bool result = Utils::readPropertyFromFile(path.c_str(), "EMPTY", val);
     // The function sets val="" and returns true when property line is found
+    EXPECT_TRUE(Utils::readPropertyFromFile(path.c_str(), "EMPTY", val));
     EXPECT_EQ(val, "");
     std::remove(path.c_str());
 }
