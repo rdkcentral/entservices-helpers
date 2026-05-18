@@ -64,6 +64,9 @@
 extern "C" int __real_unlink(const char* path);
 
 using namespace WPEFramework;
+using ::testing::NiceMock;
+using ::testing::Invoke;
+using ::testing::_;
 
 /* ============================================================
  * Test fixture
