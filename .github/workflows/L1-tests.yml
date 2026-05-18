@@ -127,6 +127,11 @@ jobs:
           path: entservices-testframework
           ref: develop
 
+      - name: Patch testframework to link helpers tests
+        run: |
+          sed -i 's|#PLUGIN_BLUETOOTH|#PLUGIN_HELPERS\nif(PLUGIN_HELPERS)\n    message(STATUS "linking libWPEFrameworkL1TestsHelpers to RdkServicesL1Test target")\n    target_link_libraries(${PROJECT_NAME} "${ENTSERVICES_REPO_L1TEST_LIB_PATH}/libWPEFrameworkL1TestsHelpers.so")\nendif()\n\n#PLUGIN_BLUETOOTH|' \
+            $GITHUB_WORKSPACE/entservices-testframework/Tests/L1Tests/CMakeLists.txt
+
       - name: Checkout entservices-helpers
         if: ${{ inputs.caller_source == 'local' }}
         uses: actions/checkout@v3
