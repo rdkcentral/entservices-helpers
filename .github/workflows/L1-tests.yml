@@ -125,7 +125,7 @@ jobs:
         with:
           repository: rdkcentral/entservices-testframework
           path: entservices-testframework
-          ref: feature/RDKEMW-18615
+          ref: develop
 
       - name: Checkout entservices-helpers
         if: ${{ inputs.caller_source == 'local' }}
