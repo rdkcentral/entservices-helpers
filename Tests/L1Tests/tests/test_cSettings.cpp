@@ -46,16 +46,22 @@
 #endif
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include "Module.h"    /* WPEFramework core/plugins */
 #include "cSettings.h"
 #include "UtilsLogging.h"
+#include "WrapsMock.h"
 
 #include <fstream>
 #include <iterator>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+
+/* The linker wraps unlink -> __wrap_unlink; expose the real symbol so we can
+ * forward mock calls to the actual syscall. */
+extern "C" int __real_unlink(const char* path);
 
 using namespace WPEFramework;
 
@@ -66,9 +72,17 @@ using namespace WPEFramework;
 class cSettingsTest : public ::testing::Test {
 protected:
     std::string tmpFile; /* unique per-test path in /tmp */
+    NiceMock<WrapsImplMock>* p_wrapsImplMock { nullptr };
 
     void SetUp() override
     {
+        /* Register the Wraps mock BEFORE any ::unlink() call, because the
+         * testframework wraps unlink globally and crashes if impl == nullptr. */
+        p_wrapsImplMock = new NiceMock<WrapsImplMock>;
+        Wraps::setImpl(p_wrapsImplMock);
+        ON_CALL(*p_wrapsImplMock, unlink(::testing::_))
+            .WillByDefault(::testing::Invoke(__real_unlink));
+
         /* mkstemp guarantees a unique, already-open file */
         char tmpl[] = "/tmp/csettings_test_XXXXXX";
         int fd = ::mkstemp(tmpl);
@@ -82,6 +96,9 @@ protected:
     void TearDown() override
     {
         ::unlink(tmpFile.c_str()); /* best-effort cleanup; ignore errors */
+        Wraps::setImpl(nullptr);
+        delete p_wrapsImplMock;
+        p_wrapsImplMock = nullptr;
     }
 
     /* ---- helpers ---- */
