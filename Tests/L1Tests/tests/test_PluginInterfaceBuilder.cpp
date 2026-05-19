@@ -289,6 +289,7 @@ TEST_F(PluginInterfaceRefTest, MoveAssignmentSelfMoveIsGuarded)
     ref = std::move(ref); /* NOLINT(bugprone-use-after-move) */
 
     /* ref still valid (self-move guard kept everything intact). */
+    /* coverity[use_after_move] */
     EXPECT_TRUE(static_cast<bool>(ref));
 
     /* Release the test's own extra reference.
@@ -656,6 +657,7 @@ TEST_F(MakeUniqueTest, MoveTransfersOwnership)
     auto ptr1 = WPEFramework::Plugin::make_unique<SimpleObj>(7);
     auto ptr2 = std::move(ptr1);
 
+    /* coverity[use_after_move] */
     EXPECT_EQ(nullptr, ptr1.get());
     ASSERT_NE(nullptr, ptr2.get());
     EXPECT_EQ(7, ptr2->value);
