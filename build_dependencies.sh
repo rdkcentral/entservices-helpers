@@ -109,6 +109,7 @@ mkdir -p headers/rdk/iarmbus
 mkdir -p headers/rdk/iarmmgrs-hal
 mkdir -p headers/proc
 cd headers
+touch rfcapi.h
 touch secure_wrapper.h
 touch wpa_ctrl.h
 touch rdk_logger_milestone.h
