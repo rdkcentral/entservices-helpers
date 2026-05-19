@@ -19,7 +19,7 @@ env:
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME}}
   AUTOMATICS_PASSCODE: ${{ secrets. AUTOMATICS_PASSCODE}}
   ENABLE_CACHE: "false"
-  SKIP_COVERAGE: "true"
+
 
 jobs:
   L1-tests:
