@@ -126,15 +126,17 @@ TEST_F(UtilsProcessTest, KillProcessMatchesByCommandName)
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&fakeProc))   // first call: return the matching process
-        .WillOnce(Return(nullptr));    // second call: end of table
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            strncpy(d.cmd, "myservice", sizeof(d.cmd) - 1);
+            d.tid = 99999; d.ppid = 1; d.cmdline = nullptr;
+            *p = d; return p;
+        }))
+        .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
     // kill(99999, SIGTERM) will fail (no such process) → ret_value stays false
-    // but the function still returns false correctly; the important thing is
-    // the mock path exercised the cmd-name match branch.
     bool result = Utils::killProcess("myservice");
-    // PID 99999 almost certainly doesn't exist — kill returns -1 → false
     EXPECT_FALSE(result);
 }
 
@@ -144,23 +146,23 @@ TEST_F(UtilsProcessTest, KillProcessMatchesByCommandName)
 
 TEST_F(UtilsProcessTest, KillProcessMatchesByCmdlineArgument)
 {
-    static proc_t fakeProc {};
-    fakeProc.cmd[0] = '\0'; // cmd name doesn't match
-    fakeProc.tid  = 99998;
-    fakeProc.ppid = 1;
-    // Build fake cmdline: ["/usr/bin/wrapper", "--plugin=target", nullptr]
     static const char* argv[] = { "/usr/bin/wrapper", "--plugin=target", nullptr };
-    fakeProc.cmdline = const_cast<char**>(argv);
 
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&fakeProc))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            static const char* argv[] = { "/usr/bin/wrapper", "--plugin=target", nullptr };
+            d.cmd[0] = '\0';
+            d.tid = 99998; d.ppid = 1;
+            d.cmdline = const_cast<char**>(argv);
+            *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
     bool result = Utils::killProcess("target");
-    // PID 99998 almost certainly doesn't exist → kill returns -1 → false
     EXPECT_FALSE(result);
 }
 
@@ -170,19 +172,21 @@ TEST_F(UtilsProcessTest, KillProcessMatchesByCmdlineArgument)
 
 TEST_F(UtilsProcessTest, KillProcessMultipleProcessesNoMatch)
 {
-    static proc_t proc1 {}, proc2 {};
-    strncpy(proc1.cmd, "alpha", sizeof(proc1.cmd) - 1);
-    proc1.cmdline = nullptr;
-    proc1.tid = 1001; proc1.ppid = 1;
-    strncpy(proc2.cmd, "beta", sizeof(proc2.cmd) - 1);
-    proc2.cmdline = nullptr;
-    proc2.tid = 1002; proc2.ppid = 1;
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&proc1))
-        .WillOnce(Return(&proc2))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            strncpy(d.cmd, "alpha", sizeof(d.cmd) - 1);
+            d.tid = 1001; d.ppid = 1; d.cmdline = nullptr;
+            *p = d; return p;
+        }))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            strncpy(d.cmd, "beta", sizeof(d.cmd) - 1);
+            d.tid = 1002; d.ppid = 1; d.cmdline = nullptr;
+            *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
@@ -196,15 +200,14 @@ TEST_F(UtilsProcessTest, KillProcessMultipleProcessesNoMatch)
 
 TEST_F(UtilsProcessTest, KillProcessEntryWithEmptyCmdAndNullCmdline)
 {
-    static proc_t fakeProc {};
-    fakeProc.cmd[0] = '\0';
-    fakeProc.cmdline = nullptr;
-    fakeProc.tid = 9997; fakeProc.ppid = 1;
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&fakeProc))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            d.cmd[0] = '\0'; d.tid = 9997; d.ppid = 1; d.cmdline = nullptr;
+            *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
@@ -253,15 +256,15 @@ TEST_F(UtilsProcessTest, GetChildProcessIDsNoProcessesReturnsFalse)
 
 TEST_F(UtilsProcessTest, GetChildProcessIDsOneChildFound)
 {
-    static proc_t child {};
-    child.ppid = 1234;
-    child.tid  = 5678;
-    strncpy(child.cmd, "childproc", sizeof(child.cmd) - 1);
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&child))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {};
+            d.ppid = 1234; d.tid = 5678;
+            strncpy(d.cmd, "childproc", sizeof(d.cmd) - 1);
+            *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
@@ -278,17 +281,18 @@ TEST_F(UtilsProcessTest, GetChildProcessIDsOneChildFound)
 
 TEST_F(UtilsProcessTest, GetChildProcessIDsMultipleChildrenFound)
 {
-    static proc_t c1 {}, c2 {}, c3 {};
-    c1.ppid = 100; c1.tid = 201;
-    c2.ppid = 100; c2.tid = 202;
-    c3.ppid = 999; c3.tid = 300; // different parent — must NOT appear
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&c1))
-        .WillOnce(Return(&c2))
-        .WillOnce(Return(&c3))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {}; d.ppid = 100; d.tid = 201; *p = d; return p;
+        }))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {}; d.ppid = 100; d.tid = 202; *p = d; return p;
+        }))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {}; d.ppid = 999; d.tid = 300; *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
@@ -306,13 +310,12 @@ TEST_F(UtilsProcessTest, GetChildProcessIDsMultipleChildrenFound)
 
 TEST_F(UtilsProcessTest, GetChildProcessIDsNoChildForGivenPPID)
 {
-    static proc_t p1 {};
-    p1.ppid = 999; p1.tid = 111;
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&p1))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {}; d.ppid = 999; d.tid = 111; *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
@@ -346,13 +349,12 @@ TEST_F(UtilsProcessTest, GetChildProcessIDsZeroPPID)
 
 TEST_F(UtilsProcessTest, GetChildProcessIDsAppendsToExistingVector)
 {
-    static proc_t child {};
-    child.ppid = 50; child.tid = 60;
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
-        .WillOnce(Return(&child))
+        .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
+            static proc_t d {}; d.ppid = 50; d.tid = 60; *p = d; return p;
+        }))
         .WillOnce(Return(nullptr));
     EXPECT_CALL(*p_readprocImplMock, closeproc(&fakePT));
 
