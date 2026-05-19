@@ -39,6 +39,7 @@
 #include <vector>
 
 using ::testing::_;
+using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::NiceMock;
 
@@ -153,10 +154,10 @@ TEST_F(UtilsProcessTest, KillProcessMatchesByCmdlineArgument)
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
         .WillOnce(Invoke([](PROCTAB*, proc_t* p) -> proc_t* {
             static proc_t d {};
-            static const char* argv[] = { "/usr/bin/wrapper", "--plugin=target", nullptr };
+            static const char* av[] = { "/usr/bin/wrapper", "--plugin=target", nullptr };
             d.cmd[0] = '\0';
             d.tid = 99998; d.ppid = 1;
-            d.cmdline = const_cast<char**>(argv);
+            d.cmdline = const_cast<char**>(av);
             *p = d; return p;
         }))
         .WillOnce(Return(nullptr));
