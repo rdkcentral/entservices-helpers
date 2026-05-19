@@ -107,6 +107,17 @@ endmacro()
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
+
+# rfcapi.h is a platform SDK header not present on native build machines.
+# The CI pipeline stubs it via "touch rfcapi.h" in Tests/headers/ but that
+# directory is not in the include path for this target on native builds.
+# Generate an empty stub in the binary dir so #include "rfcapi.h" resolves
+# without committing any file to the repo. All actual RFC types come from
+# the force-included Rfc.h mock header.
+if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/rfcapi.h")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/rfcapi.h" "#pragma once\n")
+endif()
+
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helpers.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cSettings.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_PluginInterfaceBuilder.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
@@ -127,6 +138,7 @@ target_include_directories(${MODULE_NAME}
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
+        ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_SOURCE_DIR}/../entservices-testframework/Tests/mocks
         ${CMAKE_SOURCE_DIR}/../entservices-testframework/Tests/mocks/devicesettings
         ${CMAKE_SOURCE_DIR}/../entservices-testframework/Tests/mocks/thunder
