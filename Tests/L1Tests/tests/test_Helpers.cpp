@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include "UtilsLogging.h"
+#include "UtilssyncPersistFile.h"
 
 TEST(HelpersTest, Placeholder)
 {
