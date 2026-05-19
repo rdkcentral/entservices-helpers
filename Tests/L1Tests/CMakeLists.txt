@@ -111,6 +111,8 @@ add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helper
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
+target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_L1TestsHelpers)
+
 include_directories(${TEST_INC})
 
 target_link_directories(${MODULE_NAME} PUBLIC ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib/wpeframework/plugins)
