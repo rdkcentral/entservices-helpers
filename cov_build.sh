@@ -23,6 +23,10 @@ set -e
 GITHUB_WORKSPACE="${PWD}"
 ls -la ${GITHUB_WORKSPACE}
 ############################
+# Generate stub headers required by the build but absent on native machines
+mkdir -p ${GITHUB_WORKSPACE}/entservices-testframework/Tests/headers
+touch ${GITHUB_WORKSPACE}/entservices-testframework/Tests/headers/rfcapi.h
+############################
 # Build entservices-helpers
 echo "building entservices-helpers"
 
