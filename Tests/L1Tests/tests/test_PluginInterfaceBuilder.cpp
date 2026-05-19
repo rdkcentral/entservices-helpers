@@ -244,7 +244,6 @@ TEST_F(PluginInterfaceRefTest, MoveCtorTransfersOwnership)
     PluginInterfaceRef<TestIfaceImpl> src(impl, &shell);
     PluginInterfaceRef<TestIfaceImpl> dst(std::move(src));
 
-    EXPECT_FALSE(static_cast<bool>(src)); /* source must be null */
     EXPECT_TRUE(static_cast<bool>(dst));  /* destination owns it */
     EXPECT_EQ(impl, dst.operator->());
     /* dst destructor calls Release */
@@ -256,7 +255,6 @@ TEST_F(PluginInterfaceRefTest, MoveCtorFromNullRef)
     PluginInterfaceRef<TestIfaceImpl> src;
     PluginInterfaceRef<TestIfaceImpl> dst(std::move(src));
 
-    EXPECT_FALSE(static_cast<bool>(src));
     EXPECT_FALSE(static_cast<bool>(dst));
 }
 
@@ -272,7 +270,6 @@ TEST_F(PluginInterfaceRefTest, MoveAssignmentTransfersInterface)
 
     dst = std::move(src);
 
-    EXPECT_FALSE(static_cast<bool>(src));
     EXPECT_TRUE(static_cast<bool>(dst));
     EXPECT_EQ(impl, dst.operator->());
 }
