@@ -147,8 +147,6 @@ TEST_F(UtilsProcessTest, KillProcessMatchesByCommandName)
 
 TEST_F(UtilsProcessTest, KillProcessMatchesByCmdlineArgument)
 {
-    static const char* argv[] = { "/usr/bin/wrapper", "--plugin=target", nullptr };
-
     EXPECT_CALL(*p_readprocImplMock, openproc(_))
         .WillOnce(Return(&fakePT));
     EXPECT_CALL(*p_readprocImplMock, readproc(&fakePT, _))
