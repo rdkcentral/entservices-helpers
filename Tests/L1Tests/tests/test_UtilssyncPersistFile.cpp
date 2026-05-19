@@ -111,7 +111,7 @@ TEST_F(SyncPersistFileTest, SyncEmptyFileSucceeds)
 
 TEST_F(SyncPersistFileTest, PersistJsonSettingsCreatesFile)
 {
-    JsonValue value(std::string("testValue"));
+    JsonValue value("testValue");
     EXPECT_NO_FATAL_FAILURE(
         Utils::persistJsonSettings(PERSIST_JSON_FILE, "testKey", value));
     std::ifstream f(PERSIST_JSON_FILE);
@@ -120,7 +120,7 @@ TEST_F(SyncPersistFileTest, PersistJsonSettingsCreatesFile)
 
 TEST_F(SyncPersistFileTest, PersistJsonSettingsWritesKeyValue)
 {
-    JsonValue value(std::string("hello"));
+    JsonValue value("hello");
     Utils::persistJsonSettings(PERSIST_JSON_FILE, "greeting", value);
 
     // Read back the raw file content and verify the key is present
@@ -132,8 +132,8 @@ TEST_F(SyncPersistFileTest, PersistJsonSettingsWritesKeyValue)
 
 TEST_F(SyncPersistFileTest, PersistJsonSettingsOverwritesExistingKey)
 {
-    JsonValue val1(std::string("first"));
-    JsonValue val2(std::string("second"));
+    JsonValue val1("first");
+    JsonValue val2("second");
     Utils::persistJsonSettings(PERSIST_JSON_FILE, "myKey", val1);
     Utils::persistJsonSettings(PERSIST_JSON_FILE, "myKey", val2);
 
