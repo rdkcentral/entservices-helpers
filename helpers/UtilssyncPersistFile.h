@@ -32,6 +32,7 @@ inline void syncPersistFile(const string file)
         printf("fopen NULL\n");
         return;
     }
+    printf("Test coverity workflow for file %s\n");
     fflush(fp);
     fsync(fileno(fp));
     fclose(fp);

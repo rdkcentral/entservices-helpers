@@ -63,6 +63,12 @@ target_include_directories(${MODULE_NAME}
 
 target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers)
 
+target_compile_options(${MODULE_NAME}
+    PRIVATE
+        -Wall
+        -Werror
+        -Wno-error=format)
+
 target_link_libraries(${MODULE_NAME}
     PRIVATE
         CompileSettingsDebug::CompileSettingsDebug
