@@ -125,6 +125,11 @@ add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Utilsf
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsFile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsgetFileContent.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsgetRFCConfig.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsisValidInt.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsString.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSearchRDKProfile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilssyncPersistFile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSynchro.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
