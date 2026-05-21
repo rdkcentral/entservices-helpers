@@ -28,9 +28,6 @@
 #include <syscall.h>
 #include "tr181api.h"
 #include <plugins/plugins.h>
-#ifdef USE_IARM
-#include "UtilsIarm.h"
-#endif
 
 // std
 #include <string>
