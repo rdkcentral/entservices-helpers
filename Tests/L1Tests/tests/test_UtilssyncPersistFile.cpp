@@ -53,14 +53,14 @@ protected:
         ON_CALL(*p_wrapsImplMock, unlink(_))
             .WillByDefault(Invoke(__real_unlink));
         // Start clean
-        ::unlink(SYNC_TEMP_FILE.c_str());
-        ::unlink(PERSIST_JSON_FILE.c_str());
+        (void)::unlink(SYNC_TEMP_FILE.c_str());
+        (void)::unlink(PERSIST_JSON_FILE.c_str());
     }
 
     void TearDown() override
     {
-        ::unlink(SYNC_TEMP_FILE.c_str());
-        ::unlink(PERSIST_JSON_FILE.c_str());
+        (void)::unlink(SYNC_TEMP_FILE.c_str());
+        (void)::unlink(PERSIST_JSON_FILE.c_str());
         Wraps::setImpl(nullptr);
         delete p_wrapsImplMock;
         p_wrapsImplMock = nullptr;
