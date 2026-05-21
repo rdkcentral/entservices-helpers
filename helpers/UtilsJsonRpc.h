@@ -21,9 +21,8 @@
 
 #include "UtilsLogging.h"
 
-#define LOGDBGMETHOD() do { std::string json; parameters.ToString(json); LOGDBG( "params=%s", json.c_str() ); } while (0)
-#define LOGINFOMETHOD() do { std::string json; parameters.ToString(json); LOGINFO( "params=%s", json.c_str() ); } while (0)
-#define LOGTRACEMETHODFIN() do { std::string json; response.ToString(json); LOGDBG( "response=%s", json.c_str() ); } while (0)
+#define LOGINFOMETHOD() { std::string json; parameters.ToString(json); LOGINFO( "params=%s", json.c_str() ); }
+#define LOGTRACEMETHODFIN() { std::string json; response.ToString(json); LOGINFO( "response=%s", json.c_str() ); }
 
 /**
  * DO NOT USE THIS.
