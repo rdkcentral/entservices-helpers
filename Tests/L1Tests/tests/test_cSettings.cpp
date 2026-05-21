@@ -87,8 +87,10 @@ protected:
             .WillByDefault(::testing::Invoke(__real_unlink));
 
         /* mkstemp guarantees a unique, already-open file */
+        mode_t old_umask = ::umask(0077); /* Set restrictive umask: owner-only access */
         char tmpl[] = "/tmp/csettings_test_XXXXXX";
         int fd = ::mkstemp(tmpl);
+        ::umask(old_umask); /* Restore original umask */
         ASSERT_NE(-1, fd) << "mkstemp failed: " << strerror(errno);
         if (fd >= 0) {
             ::close(fd);
@@ -294,7 +296,7 @@ TEST_F(cSettingsTest, SetValueStringReturnsFalseWhenFileDeleted)
 {
     LOGINFO("Test: setValue returns false when backing file has been removed");
     cSettings s(tmpFile);
-    ::unlink(tmpFile.c_str()); /* simulate unexpected removal */
+    (void)::unlink(tmpFile.c_str()); /* simulate unexpected removal */
 
     EXPECT_FALSE(s.setValue("key", std::string("val")));
     /* recreate so TearDown's unlink does not warn */
@@ -546,7 +548,7 @@ TEST_F(cSettingsTest, RemoveReturnsFalseWhenFileDeleted)
     LOGINFO("Test: remove returns false when backing file has been deleted");
     cSettings s(tmpFile);
     s.setValue("key", std::string("val"));
-    ::unlink(tmpFile.c_str());
+    (void)::unlink(tmpFile.c_str());
 
     /*
      * After unlink: writeToFile() returns false because Utils::fileExists()
@@ -566,7 +568,7 @@ TEST_F(cSettingsTest, WriteToFileReturnsFalseWhenFileNotExists)
 {
     LOGINFO("Test: writeToFile returns false when backing file is absent");
     cSettings s(tmpFile);
-    ::unlink(tmpFile.c_str());
+    (void)::unlink(tmpFile.c_str());
 
     EXPECT_FALSE(s.writeToFile());
 }
