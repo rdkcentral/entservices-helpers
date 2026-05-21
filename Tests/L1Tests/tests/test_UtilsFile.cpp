@@ -120,22 +120,26 @@ protected:
         UtilsFileFixture::SetUp();
 
         /* Unique source path */
+        mode_t old_umask = ::umask(0077); /* Set restrictive umask: owner-only access */
         char src[] = "/tmp/utilsmovefile_src_XXXXXX";
         int fd = ::mkstemp(src);
+        ::umask(old_umask); /* Restore original umask */
         ASSERT_NE(-1, fd) << strerror(errno);
-        ::close(fd);
+        if (fd >= 0) {
+            ::close(fd);
+        }
         srcFile = src;
 
         /* Destination path (not yet created) */
         dstFile = std::string(src) + "_dst";
-        ::unlink(dstFile.c_str()); /* ensure absent */
+        (void)::unlink(dstFile.c_str()); /* ensure absent */
     }
 
     void TearDown() override
     {
         /* Best-effort cleanup */
-        ::unlink(srcFile.c_str());
-        ::unlink(dstFile.c_str());
+        (void)::unlink(srcFile.c_str());
+        (void)::unlink(dstFile.c_str());
         UtilsFileFixture::TearDown();
     }
 };
@@ -145,7 +149,7 @@ protected:
 TEST_F(MoveFileTest, SourceDoesNotExistReturnsFalse)
 {
     LOGINFO("Test: MoveFile returns false when source file does not exist");
-    ::unlink(srcFile.c_str()); /* remove source */
+    (void)::unlink(srcFile.c_str()); /* remove source */
     ASSERT_FALSE(pathExists(srcFile));
 
     bool result = Utils::MoveFile(srcFile, dstFile);
@@ -235,7 +239,7 @@ TEST_F(MoveFileTest, DestinationInSubdirectoryCreatesPath)
     const std::string dstSub  = subDir + "/moved_file.txt";
 
     /* Ensure clean state */
-    ::unlink(dstSub.c_str());
+    (void)::unlink(dstSub.c_str());
     ::rmdir(subDir.c_str());
 
     writeFile(srcFile, "subdir content");
@@ -243,7 +247,7 @@ TEST_F(MoveFileTest, DestinationInSubdirectoryCreatesPath)
     bool result = Utils::MoveFile(srcFile, dstSub);
 
     /* Cleanup regardless of result to avoid residue */
-    ::unlink(dstSub.c_str());
+    (void)::unlink(dstSub.c_str());
     ::rmdir(subDir.c_str());
 
     EXPECT_TRUE(result);
