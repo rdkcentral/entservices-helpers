@@ -308,12 +308,12 @@ protected:
         ON_CALL(*p_wrapsImplMock, unlink(_))
             .WillByDefault(Invoke(__real_unlink));
         // Ensure a clean starting state
-        ::unlink(SYSTEM_MODE_FILE);
+        (void)::unlink(SYSTEM_MODE_FILE);
     }
 
     void TearDown() override
     {
-        ::unlink(SYSTEM_MODE_FILE);
+        (void)::unlink(SYSTEM_MODE_FILE);
         Wraps::setImpl(nullptr);
         delete p_wrapsImplMock;
         p_wrapsImplMock = nullptr;
