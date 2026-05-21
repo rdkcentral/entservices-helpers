@@ -90,15 +90,17 @@ protected:
         char tmpl[] = "/tmp/csettings_test_XXXXXX";
         int fd = ::mkstemp(tmpl);
         ASSERT_NE(-1, fd) << "mkstemp failed: " << strerror(errno);
-        ::close(fd);
+        if (fd >= 0) {
+            ::close(fd);
+        }
         /* Remove so the cSettings constructor can create it fresh when needed */
-        ::unlink(tmpl);
+        (void)::unlink(tmpl);
         tmpFile = tmpl;
     }
 
     void TearDown() override
     {
-        ::unlink(tmpFile.c_str()); /* best-effort cleanup; ignore errors */
+        (void)::unlink(tmpFile.c_str()); /* best-effort cleanup; ignore errors */
         Wraps::setImpl(nullptr);
         delete p_wrapsImplMock;
         p_wrapsImplMock = nullptr;
@@ -773,7 +775,7 @@ TEST_F(cSettingsTest, LongKeyAndValue)
 
     cSettings s(tmpFile);
     EXPECT_TRUE(s.setValue(longKey, longVal));
-    EXPECT_EQ(longVal, s.getValue(longKey).String());
+    EXPECT_EQ(longVal, s.getValue(std::move(longKey)).String());
 }
 
 TEST_F(cSettingsTest, ValueWithSpaces)
