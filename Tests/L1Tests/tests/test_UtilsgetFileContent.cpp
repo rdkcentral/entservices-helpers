@@ -95,16 +95,20 @@ protected:
         ON_CALL(*p_wrapsImplMock, unlink(_))
             .WillByDefault(Invoke(__real_unlink));
 
+        mode_t old_umask = ::umask(0077); /* Set restrictive umask: owner-only access */
         char tmpl[] = "/tmp/utilsgetfilecontent_XXXXXX";
         int fd = ::mkstemp(tmpl);
+        ::umask(old_umask); /* Restore original umask */
         ASSERT_NE(-1, fd) << strerror(errno);
-        ::close(fd);
+        if (fd >= 0) {
+            ::close(fd);
+        }
         tmpFile = tmpl;
     }
 
     void TearDown() override
     {
-        ::unlink(tmpFile.c_str());
+        (void)::unlink(tmpFile.c_str());
         Wraps::setImpl(nullptr);
         delete p_wrapsImplMock;
         p_wrapsImplMock = nullptr;
@@ -331,9 +335,9 @@ protected:
     void TearDown() override
     {
         /* Remove test files and directory */
-        ::unlink((testDir + "/alpha.txt").c_str());
-        ::unlink((testDir + "/beta.txt").c_str());
-        ::unlink((testDir + "/gamma.log").c_str());
+        (void)::unlink((testDir + "/alpha.txt").c_str());
+        (void)::unlink((testDir + "/beta.txt").c_str());
+        (void)::unlink((testDir + "/gamma.log").c_str());
         ::rmdir(testDir.c_str());
         UtilsFileContentFixture::TearDown();
     }
