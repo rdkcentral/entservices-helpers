@@ -76,17 +76,21 @@ protected:
             .WillByDefault(Invoke(__real_unlink));
 
         /* Create a real temp file so Exists tests have something to find. */
+        mode_t old_umask = ::umask(0077); /* Set restrictive umask: owner-only access */
         char tmpl[] = "/tmp/utilsfileexists_XXXXXX";
         int fd = ::mkstemp(tmpl);
+        ::umask(old_umask); /* Restore original umask */
         ASSERT_NE(-1, fd) << "mkstemp failed: " << strerror(errno);
-        ::close(fd);
+        if (fd >= 0) {
+            ::close(fd);
+        }
         tmpFile = tmpl;
     }
 
     void TearDown() override
     {
         /* ::unlink() is intercepted → goes through WrapsImplMock → __real_unlink */
-        ::unlink(tmpFile.c_str());
+        (void)::unlink(tmpFile.c_str());
         Wraps::setImpl(nullptr);
         delete p_wrapsImplMock;
         p_wrapsImplMock = nullptr;
@@ -110,7 +114,7 @@ TEST_F(FileExistsTest, ExistingRegularFileReturnsTrue)
 TEST_F(FileExistsTest, NonExistentFileReturnsFalse)
 {
     LOGINFO("Test: fileExists returns false after the file is deleted");
-    ::unlink(tmpFile.c_str()); /* remove it first */
+    (void)::unlink(tmpFile.c_str()); /* remove it first */
     EXPECT_FALSE(Utils::fileExists(tmpFile.c_str()));
 }
 
@@ -147,7 +151,7 @@ TEST_F(FileExistsTest, FileNotExistsThenCreatedThenExists)
     LOGINFO("Test: fileExists correctly reflects file creation at runtime");
     std::string dynPath = "/tmp/utilsfileexists_dyncheck_XXXXXX";
     /* Ensure absent first */
-    ::unlink(dynPath.c_str()); /* harmless if already absent */
+    (void)::unlink(dynPath.c_str()); /* harmless if already absent */
     ASSERT_FALSE(Utils::fileExists(dynPath.c_str()));
 
     /* Create it */
@@ -159,7 +163,7 @@ TEST_F(FileExistsTest, FileNotExistsThenCreatedThenExists)
     EXPECT_TRUE(Utils::fileExists(dynPath.c_str()));
 
     /* cleanup */
-    ::unlink(dynPath.c_str());
+    (void)::unlink(dynPath.c_str());
 }
 
 /* ===========================================================
