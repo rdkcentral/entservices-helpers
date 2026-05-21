@@ -112,6 +112,7 @@ cd headers
 touch secure_wrapper.h
 touch wpa_ctrl.h
 touch rdk_logger_milestone.h
+touch rfcapi.h
 touch rdk/iarmbus/libIARM.h
 touch rdk/iarmbus/libIBus.h
 touch rdk/iarmbus/libIBusDaemon.h
