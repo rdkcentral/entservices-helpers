@@ -28,10 +28,7 @@
 #include <syscall.h>
 #include "tr181api.h"
 #include <plugins/plugins.h>
-
-
-// IARM
-#include "rdk/iarmbus/libIARM.h"
+#include "UtilsIarm.h"
 
 // std
 #include <string>
@@ -183,26 +180,8 @@ template<typename T> inline T clamp(T x, T lo, T hi) { return max(min(x, hi), lo
         param = parameters[paramName].String();\
 }
 
-#define IARM_CHECK(FUNC) \
-  if ((res = FUNC) != IARM_RESULT_SUCCESS) { \
-    LOGINFO("IARM %s: %s", #FUNC, \
-        res == IARM_RESULT_INVALID_PARAM ? "invalid param" : ( \
-        res == IARM_RESULT_INVALID_STATE ? "invalid state" : ( \
-        res == IARM_RESULT_IPCCORE_FAIL ? "ipcore fail" : ( \
-        res == IARM_RESULT_OOM ? "oom" : "unknown")))); \
-  } else { \
-    LOGINFO("IARM %s: success", #FUNC); \
-  }
-
 namespace Utils
 {
-    struct IARM {
-        static bool init();
-        static bool isConnected();
-
-        static const char* NAME;
-    };
-
     namespace String
     {
         // locale-wise comparison
@@ -359,14 +338,6 @@ namespace Utils
         bool readPropertyValue(const std::string &str, std::vector<std::string> &stringList);
     }
 
-    /**
-     * @brief Format an IARM_Result_t value for error reporting.
-     *
-     * @param result The result of an IARM bus call.
-     * @return       A corresponding string.
-     *
-     */
-    std::string formatIARMResult(IARM_Result_t result);
 
     /***
      * @brief	: Checks that file exists
