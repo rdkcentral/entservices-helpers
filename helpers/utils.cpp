@@ -32,90 +32,8 @@
 using namespace WPEFramework;
 using namespace std;
 
-bool Utils::String::readPropertyValue(const std::string &str, std::vector<std::string> &stringList)
-{
-    std::size_t found_start_pos = 0;
-    std::string propertyValue = "";
-    bool ret_value = false;
-
-    if (str.empty())
-    {
-        LOGERR("str - input line is empty");
-    }
-    // Extract the value after the '='
-    else if ((found_start_pos = str.find("=")) != std::string::npos)
-    {
-       // Extract the value after the '(' if present
-       if (str[found_start_pos+1] == '(')
-       {
-           propertyValue = str.substr(found_start_pos + 2);
-       }
-       else
-       {
-           propertyValue = str.substr(found_start_pos + 1);
-       }
-    }
-    else
-    {
-        LOGERR("Property value not found in the input line");
-    }
-
-    if (!propertyValue.empty())
-    {
-        /* Remove new line character from end of the string if it have */
-        if ((propertyValue.back() == '\r') || (propertyValue.back() == '\n'))
-        {
-            propertyValue.pop_back();
-        }
-
-        /* Remove ')' character from end of the string if it have */
-        if (propertyValue.back() == ')')
-        {
-            propertyValue.pop_back();
-        }
-
-        split(stringList, propertyValue, " ");
-
-        ret_value = true;
-    }
-    return ret_value;
-}
-
-bool Utils::readPropertyFromFile(const char* pfilename, const std::string& property, std::vector<std::string> &stringList)
-{
-    std::ifstream file(pfilename);
-    std::string line = "";
-    bool ret_value = false;
-
-    if (file.is_open())
-    {
-       while (std::getline(file, line))
-       {
-           if (!line.empty())
-           {
-               // Skip lines that start with '#' (single-line comments) and property not found
-               if ((line[0] != '#') && (line.find(property) == 0))
-               {
-                   if (false == (ret_value = Utils::String::readPropertyValue(line, stringList)))
-                   {
-                       LOGERR("Property value is not found");
-                   }
-                   break;
-               }
-           }
-       }
-       file.close();
-    }
-    else
-    {
-       LOGERR("Failed to open the file");
-    }
-
-    return ret_value;
-}
-
 #ifndef DONT_USE_TR181
-bool Utils::getTR181Config(const char* callerID, const char* paramName, TR181_ParamData_t& paramOutput)
+bool Helpers::getTR181Config(const char* callerID, const char* paramName, TR181_ParamData_t& paramOutput)
 {
     tr181ErrorCode_t status;
 
@@ -139,7 +57,7 @@ static size_t writeCurlResponse(void *ptr, size_t size, size_t nmemb, string str
     return realsize;
 }
 
-bool Utils::SecurityToken::isThunderSecurityConfigured()
+bool Helpers::SecurityToken::isThunderSecurityConfigured()
 {
     bool configured = false;
     long http_code = 0;
@@ -193,7 +111,7 @@ bool Utils::SecurityToken::isThunderSecurityConfigured()
 }
 
 #ifdef USE_THUNDER_COMMUNICATION
-std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> > Utils::getThunderControllerClient(std::string callsign)
+std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> > Helpers::getThunderControllerClient(std::string callsign)
 {
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
     std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> > thunderClient = make_shared<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> >(callsign.c_str(), "",false);
@@ -201,7 +119,7 @@ std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IEleme
     return thunderClient;
 }
 
-void Utils::activatePlugin(const char* callSign)
+void Helpers::activatePlugin(const char* callSign)
 {
     JsonObject joParams;
     joParams.Set("callsign",callSign);
@@ -227,7 +145,7 @@ void Utils::activatePlugin(const char* callSign)
     }
 }
 
-bool Utils::isPluginActivated(const char* callSign)
+bool Helpers::isPluginActivated(const char* callSign)
 {
     string method = "status@" + string(callSign);
     Core::JSON::ArrayType<PluginHost::MetaData::Service> joResult;

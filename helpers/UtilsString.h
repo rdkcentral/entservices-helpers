@@ -20,6 +20,10 @@
 #pragma once
 #include <fstream>
 #include <sstream>
+#include <iterator>
+#include <vector>
+#include <algorithm>
+#include <cstring>
 #include "UtilsLogging.h"
 #define SYSTEM_MODE_FILE "/tmp/SystemMode.txt"
 
@@ -72,6 +76,19 @@ namespace String {
         std::string substring(c_substring);
         int pos = find_substr_ci(string, substring, loc);
         return pos != -1;
+    }
+
+    // Looking for an element in a vector of elements
+    template<typename T>
+    bool contains(const std::vector<T>& vec, const T& label)
+    {
+        bool res = false;
+        for(T lbl : vec)
+        {
+            if (label == lbl)
+                res = true;
+        }
+        return res;
     }
 
     // Case-insensitive string comparison
@@ -152,12 +169,95 @@ namespace String {
         do
         {
             next = s.find_first_of( delimiters, current );
-
             stringList.push_back(s.substr( current, next - current ));
             current = next + 1;
         }
         while (next != string::npos);
      }
+
+    // Replace all occurrences of substring 'before' with the substring 'after', e.g. replace("foo-bar-foo", "foo", "bar") => "bar-bar-bar"
+    // Replace is case-sensitive
+    inline void replace_substr(std::string& str, const std::string& before, const std::string& after) {
+        if(before.empty())
+            return;
+        size_t start_pos = 0;
+        while((start_pos = str.find(before, start_pos)) != std::string::npos) {
+            str.replace(start_pos, before.length(), after);
+            start_pos += after.length();
+        }
+    }
+
+    //Implode a vector of strings into a string
+    inline std::string& implode(const std::vector<std::string> v, std::string& s, const std::string delim = " ")
+    {
+        std::ostringstream imploded;
+        const char* delim_c = delim.c_str();
+        size_t dl = strlen(delim_c);
+
+        std::copy(v.begin(), v.end(),
+                  std::ostream_iterator<std::string>(imploded, delim_c));
+        s = imploded.str();
+        s.erase(s.end() - dl, s.end());
+        return s;
+    }
+
+   /**
+    * @brief           :Read the property value from the given string
+    *                  If the property value have one or more values so it will copy to the vector list.
+    * @param1[in]      : str - the given string.
+    * @param2[out]     : stringList - property values will fill here.
+    * @return          : bool - return true if the property is found and its value are successfully read.
+    *                         - false if the property is not found or if there is any failure during reading.
+    *
+    */
+    inline bool readPropertyValue(const std::string &str, std::vector<std::string> &stringList)
+    {
+        std::size_t found_start_pos = 0;
+        std::string propertyValue = "";
+        bool ret_value = false;
+
+        if (str.empty())
+        {
+            LOGERR("str - input line is empty");
+        }
+        // Extract the value after the '='
+        else if ((found_start_pos = str.find("=")) != std::string::npos)
+        {
+           // Extract the value after the '(' if present
+           if (str[found_start_pos+1] == '(')
+           {
+               propertyValue = str.substr(found_start_pos + 2);
+           }
+           else
+           {
+               propertyValue = str.substr(found_start_pos + 1);
+           }
+        }
+        else
+        {
+            LOGERR("Property value not found in the input line");
+        }
+
+        if (!propertyValue.empty())
+        {
+            /* Remove new line character from end of the string if it have */
+            if ((propertyValue.back() == '\r') || (propertyValue.back() == '\n'))
+            {
+                propertyValue.pop_back();
+            }
+
+            /* Remove ')' character from end of the string if it have */
+            if (propertyValue.back() == ')')
+            {
+                propertyValue.pop_back();
+            }
+
+            split(stringList, propertyValue, " ");
+
+            ret_value = true;
+        }
+        return ret_value;
+    }
 
     static const TCHAR base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                         "abcdefghijklmnopqrstuvwxyz"

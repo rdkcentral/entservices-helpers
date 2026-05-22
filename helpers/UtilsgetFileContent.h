@@ -324,4 +324,46 @@ inline bool ExpandPropertiesInString(const char* input, const char* filePath, st
     return true;
 }
 
+/**
+ * @brief           Read the property value from the given file if the given property matches.
+ *                  If the property value has one or more values, they are copied to the vector list.
+ * @param[in]       pfilename - filename with path to parse the file.
+ * @param[in]       property - property name to search for.
+ * @param[out]      stringList - property values will be filled here.
+ * @return          bool - true if the property is found and its value is successfully read,
+ *                         false if the property is not found or if there is any failure during reading.
+ */
+inline bool readPropertyFromFile(const char* pfilename, const std::string& property, std::vector<std::string>& stringList)
+{
+    std::ifstream file(pfilename);
+    std::string line = "";
+    bool ret_value = false;
+
+    if (file.is_open())
+    {
+        while (std::getline(file, line))
+        {
+            if (!line.empty())
+            {
+                // Skip lines that start with '#' (single-line comments) and property not found
+                if ((line[0] != '#') && (line.find(property) == 0))
+                {
+                    if (false == (ret_value = Utils::String::readPropertyValue(line, stringList)))
+                    {
+                        LOGERR("Property value is not found");
+                    }
+                    break;
+                }
+            }
+        }
+        file.close();
+    }
+    else
+    {
+        LOGERR("Failed to open the file");
+    }
+
+    return ret_value;
+}
+
 }
