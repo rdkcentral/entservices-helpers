@@ -62,7 +62,7 @@ target_include_directories(${MODULE_NAME}
         $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>)
 	# $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
 
-target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers)
+target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers USE_THUNDER_COMMUNICATION)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
