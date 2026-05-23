@@ -41,7 +41,7 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 # ---- Compiled sources -------------------------------------------------------
 set(HELPERS_SOURCES
     Module.cpp
-    utils.cpp
+    # utils.cpp
     #    WebSockets/JsonRpc/Notification.cpp
     # WebSockets/JsonRpc/Request.cpp
     #WebSockets/JsonRpc/Response.cpp
