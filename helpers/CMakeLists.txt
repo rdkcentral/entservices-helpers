@@ -17,6 +17,21 @@
 
 cmake_minimum_required(VERSION 3.3)
 
+# Pull in WPEFramework/Thunder cmake support (sets ${NAMESPACE}, module paths,
+# and makes WPEFrameworkCore / WPEFrameworkCOM / WPEFrameworkWebSocket /
+# WPEFrameworkMessaging / WPEFrameworkCryptalgo available transitively via
+# find_package(${NAMESPACE}Plugins)).
+find_package(WPEFramework)
+
+if (USE_THUNDER_R4)
+    add_definitions(-DUSE_THUNDER_R4)
+endif (USE_THUNDER_R4)
+
+add_definitions(-DUSE_THUNDER_COMMUNICATION)
+
+# Append local cmake/ finders (FindDS.cmake, FindIARMBus.cmake, etc.)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
+
 # entservices-helpers: common shared utility library
 #
 # Compiled sources:
@@ -62,7 +77,7 @@ target_include_directories(${MODULE_NAME}
         $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>)
 	# $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
 
-target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers USE_THUNDER_COMMUNICATION)
+target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
@@ -82,6 +97,33 @@ if(IARMBUS_FOUND)
     target_link_libraries(${MODULE_NAME} PRIVATE ${IARMBUS_LIBRARIES})
     target_compile_definitions(${MODULE_NAME} PRIVATE HAS_API_POWERSTATE)
 endif(IARMBUS_FOUND)
+
+find_library(CURL_LIBRARIES NAMES curl)
+if(CURL_LIBRARIES)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${CURL_LIBRARIES})
+endif()
+
+find_package(TR181)
+if(TR181_FOUND)
+        target_include_directories(${MODULE_NAME} PRIVATE ${TR181_INCLUDE_DIRS})
+        target_link_libraries(${MODULE_NAME} PRIVATE ${TR181_LIBRARIES})
+endif(TR181_FOUND)
+
+find_package(Crypto)
+if(CRYPTO_FOUND)
+    target_include_directories(${MODULE_NAME} PRIVATE ${CRYPTO_INCLUDE_DIRS})
+    target_link_libraries(${MODULE_NAME} PRIVATE ${CRYPTO_LIBRARIES})
+endif(CRYPTO_FOUND)
+
+find_library(TELEMETRY_LIBRARIES NAMES telemetry_msgsender)
+if(TELEMETRY_LIBRARIES)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${TELEMETRY_LIBRARIES})
+endif()
+
+find_library(SECURE_WRAPPER_LIBRARIES NAMES secure_wrapper)
+if(SECURE_WRAPPER_LIBRARIES)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${SECURE_WRAPPER_LIBRARIES})
+endif()
 
 # ---- Install shared library --------------------------------------------------
 install(TARGETS ${MODULE_NAME}
