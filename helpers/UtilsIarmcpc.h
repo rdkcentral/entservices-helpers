@@ -57,9 +57,9 @@ namespace Helpers
     using namespace WPEFramework;
 #ifdef HAS_API_POWERSTATE
 struct IARM {
-    const char* NAME = "Thunder_Plugins";
+   static constexpr const char* NAME = "Thunder_Plugins";
 
-    bool isConnected() {
+   static bool isConnected() {
         IARM_Result_t res;
         int isRegistered = 0;
         res = IARM_Bus_IsConnected(NAME, &isRegistered);
@@ -68,7 +68,7 @@ struct IARM {
         return (isRegistered == 1);
     }
 
-    bool init() {
+    static bool init() {
         IARM_Result_t res;
         bool result = false;
 
@@ -98,7 +98,7 @@ struct IARM {
         return result;
     }
 
-    std::string formatIARMResult(IARM_Result_t result)
+    static std::string formatIARMResult(IARM_Result_t result)
     {
         switch (result) {
             case IARM_RESULT_SUCCESS:       return std::string("IARM_RESULT_SUCCESS [success]");
