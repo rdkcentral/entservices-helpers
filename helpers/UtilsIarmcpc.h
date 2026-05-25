@@ -50,11 +50,11 @@
 #define SERVER_DETAILS  "127.0.0.1:9998"
 #define MAX_STRING_LENGTH 2048
 
-using namespace WPEFramework;
 using namespace std;
 
 namespace Helpers
 {
+    using namespace WPEFramework;
 #ifdef HAS_API_POWERSTATE
 namespace IARM {
     const char* NAME = "Thunder_Plugins";
