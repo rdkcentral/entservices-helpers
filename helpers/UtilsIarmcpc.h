@@ -56,7 +56,7 @@ namespace Helpers
 {
     using namespace WPEFramework;
 #ifdef HAS_API_POWERSTATE
-namespace IARM {
+struct IARM {
     const char* NAME = "Thunder_Plugins";
 
     bool isConnected() {
@@ -113,5 +113,6 @@ namespace IARM {
          }
     }
 
-}
+};
 #endif // HAS_API_POWERSTATE
+}

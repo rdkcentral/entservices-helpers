@@ -185,12 +185,13 @@ template<typename T> inline T clamp(T x, T lo, T hi) { return max(min(x, hi), lo
         param = parameters[paramName].String();\
 }
 
-using namespace WPEFramework;
+//using namespace WPEFramework;
 using namespace std;
 
 namespace Helpers
 {
 
+    using namespace WPEFramework;
     static inline size_t writeCurlResponse(void *ptr, size_t size, size_t nmemb, string stream)
     {
         size_t realsize = size * nmemb;
