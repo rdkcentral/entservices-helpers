@@ -49,7 +49,7 @@ bool Helpers::IARM::init() {
     bool result = false;
 
     if (isConnected()) {
-        LOGINFO("IARM already connected");
+        LOGINFO("preeja IARM already connected");
         result = true;
     } else {
         res = IARM_Bus_Init(NAME);
@@ -153,7 +153,7 @@ bool Helpers::readPropertyFromFile(const char* pfilename, const std::string& pro
                // Skip lines that start with '#' (single-line comments) and property not found
                if ((line[0] != '#') && (line.find(property) == 0))
                {
-                   if (false == (ret_value = Utils::String::readPropertyValue(line, stringList)))
+                   if (false == (ret_value = Helpers::String::readPropertyValue(line, stringList)))
                    {
                        LOGERR("Property value is not found");
                    }
@@ -292,7 +292,7 @@ bool Helpers::isPluginActivated(const char* callSign)
     bool pluginActivated = false;
     if (status == Core::ERROR_NONE)
     {
-        LOGINFO("Getting status for callSign %s, result: %s", callSign, joResult[0].JSONState.Data().c_str());
+        LOGINFO("preeja Getting status for callSign %s, result: %s", callSign, joResult[0].JSONState.Data().c_str());
         pluginActivated = joResult[0].JSONState == PluginHost::IShell::ACTIVATED;
     }
     else
