@@ -194,7 +194,7 @@ template<typename T> inline T clamp(T x, T lo, T hi) { return max(min(x, hi), lo
     LOGINFO("IARM %s: success", #FUNC); \
   }
 
-namespace Utils
+namespace Helpers
 {
     struct IARM {
         static bool init();
