@@ -341,6 +341,7 @@ jobs:
           -DHIDE_NON_EXTERNAL_SYMBOLS=OFF
           -DPLUGIN_HELPERS=ON
           -DRDK_SERVICES_L1_TEST=OFF
+          "-DCMAKE_CXX_FLAGS=-I$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers"
           &&
           cmake --build build/entservices-helpers-lib
           &&
