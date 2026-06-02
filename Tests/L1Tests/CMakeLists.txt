@@ -122,6 +122,7 @@ add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Utilss
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSynchro.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsThreadRAII.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsProcess.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Utils.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 

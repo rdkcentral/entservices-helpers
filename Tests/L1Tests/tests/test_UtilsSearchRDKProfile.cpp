@@ -36,6 +36,7 @@
 #include "UtilsSearchRDKProfile.h"
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 using ::testing::NiceMock;
 
@@ -86,3 +87,138 @@ TEST_F(SearchRdkProfileTest, ReturnsExactlyOneValidEnumValueOnEachCall)
     profile_t second = searchRdkProfile();
     EXPECT_EQ(first, second);
 }
+
+// ===========================================================================
+// SearchDeviceName()
+// Logic : opens /etc/device.properties (hardcoded path)
+//         scans for a line containing "DEVICE_NAME="
+//         strips trailing '\n', copies value into outDeviceName
+//         Returns  0 on success
+//         Returns -1 if file not found OR "DEVICE_NAME" line not found
+// ===========================================================================
+
+TEST(SearchDeviceNameTest, ReturnsNegativeOneWhenDevicePropertiesMissing)
+{
+    struct stat st;
+    if (stat("/etc/device.properties", &st) == 0) {
+        GTEST_SKIP() << "/etc/device.properties exists on this system; skipping";
+    }
+    char buf[256] = {};
+    int result = SearchDeviceName(buf, sizeof(buf));
+    EXPECT_EQ(-1, result);
+}
+
+TEST(SearchDeviceNameTest, SetsEmptyStringWhenDevicePropertiesMissing)
+{
+    struct stat st;
+    if (stat("/etc/device.properties", &st) == 0) {
+        GTEST_SKIP() << "/etc/device.properties exists on this system; skipping";
+    }
+    char buf[256];
+    buf[0] = 'X'; // pre-fill to confirm it is explicitly nulled
+    SearchDeviceName(buf, sizeof(buf));
+    EXPECT_EQ('\0', buf[0]);
+}
+
+// ===========================================================================
+// ReadJsonFileForKey()
+// Logic : opens filePath, reads full file content into a string,
+//         parses it with WPEFramework JsonObject::FromString(),
+//         if key exists and its string value is non-empty -> sets value,
+//         returns true; otherwise returns false
+// Uses real temporary files — no mocks required.
+// ===========================================================================
+
+static std::string makeTempFileSRP(const std::string& content)
+{
+    char tmpPath[] = "/tmp/test_srp_XXXXXX";
+    int fd = mkstemp(tmpPath);
+    if (fd != -1)
+    {
+        (void)write(fd, content.c_str(), content.size());
+        close(fd);
+    }
+    return std::string(tmpPath);
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsFalseForNonExistentFile)
+{
+    std::string value;
+    bool result = ReadJsonFileForKey(
+        "/tmp/no_such_srp_file_12345.json", "country", value);
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(value.empty());
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsFalseForInvalidJson)
+{
+    std::string path = makeTempFileSRP("this is not valid json {{{{");
+    std::string value;
+    bool result = ReadJsonFileForKey(path.c_str(), "country", value);
+    EXPECT_FALSE(result);
+    remove(path.c_str());
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyNotFound)
+{
+    std::string path = makeTempFileSRP("{\"other\":\"value\"}");
+    std::string value;
+    bool result = ReadJsonFileForKey(path.c_str(), "country", value);
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(value.empty());
+    remove(path.c_str());
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyValueIsEmpty)
+{
+    std::string path = makeTempFileSRP("{\"country\":\"\"}");
+    std::string value;
+    bool result = ReadJsonFileForKey(path.c_str(), "country", value);
+    EXPECT_FALSE(result);
+    remove(path.c_str());
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsTrueAndSetsValueWhenKeyFound)
+{
+    std::string path = makeTempFileSRP("{\"country\":\"GB\"}");
+    std::string value;
+    bool result = ReadJsonFileForKey(path.c_str(), "country", value);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(value, "GB");
+    remove(path.c_str());
+}
+
+TEST(ReadJsonFileForKeyTest, ReturnsTrueForJsonWithMultipleKeys)
+{
+    std::string path = makeTempFileSRP(
+        "{\"version\":\"1.0\",\"country\":\"US\",\"region\":\"NA\"}");
+    std::string value;
+    bool result = ReadJsonFileForKey(path.c_str(), "country", value);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(value, "US");
+    remove(path.c_str());
+}
+
+// ===========================================================================
+// SearchPlatformCountryCode()
+// Logic : calls ReadJsonFileForKey on two hardcoded paths:
+//           /var/sky/build/vendorConfig.json  (key: "country")
+//           /var/sky/build/buildConfig.json   (key: "country")
+//         Returns true if either file has the key; false otherwise.
+// On CI / developer machines neither file exists — always returns false.
+// ===========================================================================
+
+TEST(SearchPlatformCountryCodeTest, ReturnsFalseWhenNeitherConfigFileExists)
+{
+    struct stat st1, st2;
+    if (stat("/var/sky/build/vendorConfig.json", &st1) == 0 ||
+        stat("/var/sky/build/buildConfig.json",  &st2) == 0)
+    {
+        GTEST_SKIP() << "Sky build config found on this system; skipping";
+    }
+    std::string countryCode;
+    bool result = SearchPlatformCountryCode(countryCode);
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(countryCode.empty());
+}
+
