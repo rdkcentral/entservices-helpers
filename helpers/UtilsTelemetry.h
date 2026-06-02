@@ -49,6 +49,25 @@ namespace Utils
 #endif
         };
 
+	static void SendMessage(const char* format, ...)
+        {
+#ifdef ENABLE_TELEMETRY_LOGGING
+            va_list parameters;
+            va_start(parameters, format);
+            std::string message;
+            WPEFramework::Trace::Format(message, format, parameters);
+            va_end(parameters);
+
+            // get rid of const for t2_event_s
+            char* error = strdup(message.c_str());
+            t2_event_s((char *)"THUNDER_MESSAGE", error);
+            if (error)
+            {
+                free(error);
+            }
+#endif
+        };
+
         static void sendError(const char* format, ...)
         {
 #ifdef ENABLE_TELEMETRY_LOGGING
@@ -67,5 +86,20 @@ namespace Utils
             }
 #endif
         };
+
+	static void SendEvent(char *marker, char* message)
+        {
+#ifdef ENABLE_TELEMETRY_LOGGING
+            t2_event_s(marker, message);
+#endif
+        };
+
+        static void SendEvent(char *marker, int value)
+        {
+#ifdef ENABLE_TELEMETRY_LOGGING
+            t2_event_d(marker, value);
+#endif
+        };
+
     };
 }
