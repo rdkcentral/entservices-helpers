@@ -208,7 +208,6 @@ TEST_F(UtilsIARMTest, InitReturnsFalseWhenInitFails)
         }));
 
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Init(_))
-    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Init(_))
         .WillOnce(Return(IARM_RESULT_IPCCORE_FAIL));
 
     // Connect must NOT be called if Init failed
