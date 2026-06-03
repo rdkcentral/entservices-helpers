@@ -135,7 +135,7 @@ static std::string makeTempFileSRP(const std::string& content)
     int fd = mkstemp(tmpPath);
     if (fd != -1)
     {
-        (void)write(fd, content.c_str(), content.size());
+        auto n = write(fd, content.c_str(), content.size()); (void)n;
         close(fd);
     }
     return std::string(tmpPath);

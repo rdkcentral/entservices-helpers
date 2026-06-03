@@ -56,6 +56,7 @@ protected:
 // isConnected() returns true when IARM_Bus_IsConnected sets isRegistered = 1
 TEST_F(UtilsIARMTest, IsConnectedReturnsTrueWhenRegistered)
 {
+    LOGDBG("Testing IARM::isConnected returns true when registered");
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_IsConnected(_, _))
         .WillOnce(Invoke([](const char*, int* isRegistered) -> IARM_Result_t {
             *isRegistered = 1;
@@ -383,7 +384,7 @@ static std::string writeTempFile(const std::string& content)
     int fd = mkstemp(tmpPath);
     if (fd != -1)
     {
-        (void)write(fd, content.c_str(), content.size());
+        auto n = write(fd, content.c_str(), content.size()); (void)n;
         close(fd);
     }
     return std::string(tmpPath);
