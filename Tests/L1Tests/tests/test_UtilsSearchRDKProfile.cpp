@@ -132,7 +132,9 @@ TEST(SearchDeviceNameTest, SetsEmptyStringWhenDevicePropertiesMissing)
 static std::string makeTempFileSRP(const std::string& content)
 {
     char tmpPath[] = "/tmp/test_srp_XXXXXX";
+    mode_t old_mask = umask(S_IRWXG | S_IRWXO);
     int fd = mkstemp(tmpPath);
+    umask(old_mask);
     if (fd != -1)
     {
         auto n = write(fd, content.c_str(), content.size()); (void)n;
@@ -156,7 +158,7 @@ TEST(ReadJsonFileForKeyTest, ReturnsFalseForInvalidJson)
     std::string value;
     bool result = ReadJsonFileForKey(path.c_str(), "country", value);
     EXPECT_FALSE(result);
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyNotFound)
@@ -166,7 +168,7 @@ TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyNotFound)
     bool result = ReadJsonFileForKey(path.c_str(), "country", value);
     EXPECT_FALSE(result);
     EXPECT_TRUE(value.empty());
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyValueIsEmpty)
@@ -175,7 +177,7 @@ TEST(ReadJsonFileForKeyTest, ReturnsFalseWhenKeyValueIsEmpty)
     std::string value;
     bool result = ReadJsonFileForKey(path.c_str(), "country", value);
     EXPECT_FALSE(result);
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(ReadJsonFileForKeyTest, ReturnsTrueAndSetsValueWhenKeyFound)
@@ -185,7 +187,7 @@ TEST(ReadJsonFileForKeyTest, ReturnsTrueAndSetsValueWhenKeyFound)
     bool result = ReadJsonFileForKey(path.c_str(), "country", value);
     EXPECT_TRUE(result);
     EXPECT_EQ(value, "GB");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(ReadJsonFileForKeyTest, ReturnsTrueForJsonWithMultipleKeys)
@@ -196,7 +198,7 @@ TEST(ReadJsonFileForKeyTest, ReturnsTrueForJsonWithMultipleKeys)
     bool result = ReadJsonFileForKey(path.c_str(), "country", value);
     EXPECT_TRUE(result);
     EXPECT_EQ(value, "US");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 // ===========================================================================

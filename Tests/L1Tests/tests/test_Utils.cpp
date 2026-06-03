@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "IarmBusMock.h"
@@ -381,7 +382,9 @@ TEST(ReadPropertyValueTest, ReturnsFalseWhenValueAfterEqualsIsEmpty)
 static std::string writeTempFile(const std::string& content)
 {
     char tmpPath[] = "/tmp/test_utils_XXXXXX";
+    mode_t old_mask = umask(S_IRWXG | S_IRWXO);
     int fd = mkstemp(tmpPath);
+    umask(old_mask);
     if (fd != -1)
     {
         auto n = write(fd, content.c_str(), content.size()); (void)n;
@@ -407,7 +410,7 @@ TEST(HelpersReadPropertyFromFileTest, ReturnsTrueAndExtractsValueForMatchingProp
     EXPECT_TRUE(result);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_EQ(list[0], "hello");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, ReturnsFalseWhenPropertyNotFound)
@@ -417,7 +420,7 @@ TEST(HelpersReadPropertyFromFileTest, ReturnsFalseWhenPropertyNotFound)
     bool result = Helpers::readPropertyFromFile(path.c_str(), "MYKEY", list);
     EXPECT_FALSE(result);
     EXPECT_TRUE(list.empty());
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, SkipsCommentLines)
@@ -428,7 +431,7 @@ TEST(HelpersReadPropertyFromFileTest, SkipsCommentLines)
     EXPECT_TRUE(result);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_EQ(list[0], "real");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, SkipsEmptyLines)
@@ -439,7 +442,7 @@ TEST(HelpersReadPropertyFromFileTest, SkipsEmptyLines)
     EXPECT_TRUE(result);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_EQ(list[0], "found");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, ExtractsMultipleValuesInParenthesisFormat)
@@ -452,7 +455,7 @@ TEST(HelpersReadPropertyFromFileTest, ExtractsMultipleValuesInParenthesisFormat)
     EXPECT_EQ(list[0], "val1");
     EXPECT_EQ(list[1], "val2");
     EXPECT_EQ(list[2], "val3");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, MatchesOnlyLineStartingWithProperty)
@@ -463,7 +466,7 @@ TEST(HelpersReadPropertyFromFileTest, MatchesOnlyLineStartingWithProperty)
     EXPECT_TRUE(result);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_EQ(list[0], "correct");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 TEST(HelpersReadPropertyFromFileTest, StopsAtFirstMatchingLine)
@@ -474,7 +477,7 @@ TEST(HelpersReadPropertyFromFileTest, StopsAtFirstMatchingLine)
     EXPECT_TRUE(result);
     ASSERT_EQ(list.size(), 1u);
     EXPECT_EQ(list[0], "first");
-    remove(path.c_str());
+    (void)remove(path.c_str());
 }
 
 
