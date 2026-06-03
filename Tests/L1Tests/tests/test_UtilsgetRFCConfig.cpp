@@ -181,7 +181,7 @@ TEST_F(GetRFCConfigTest, OutputStructIsPopulatedOnSuccess)
                 getRFCParameter(nullptr, StrEq("Device.Value"), _))
         .WillOnce(DoAll(
             Invoke([](char*, const char*, RFC_ParamData_t* out) {
-                strncpy(out->value, "42", MAX_PARAM_LEN - 1);
+                snprintf(out->value, MAX_PARAM_LEN, "42");
                 out->type = WDMP_STRING;
             }),
             Return(WDMP_SUCCESS)));
