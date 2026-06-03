@@ -383,13 +383,13 @@ static std::string writeTempFile(const std::string& content)
     int fd = mkstemp(tmpPath);
     if (fd != -1)
     {
-        write(fd, content.c_str(), content.size());
+        (void)write(fd, content.c_str(), content.size());
         close(fd);
     }
     return std::string(tmpPath);
 }
 
-TEST(ReadPropertyFromFileTest, ReturnsFalseForNonExistentFile)
+TEST(HelpersReadPropertyFromFileTest, ReturnsFalseForNonExistentFile)
 {
     std::vector<std::string> list;
     bool result = Helpers::readPropertyFromFile(
@@ -398,7 +398,7 @@ TEST(ReadPropertyFromFileTest, ReturnsFalseForNonExistentFile)
     EXPECT_TRUE(list.empty());
 }
 
-TEST(ReadPropertyFromFileTest, ReturnsTrueAndExtractsValueForMatchingProperty)
+TEST(HelpersReadPropertyFromFileTest, ReturnsTrueAndExtractsValueForMatchingProperty)
 {
     std::string path = writeTempFile("MYKEY=hello\n");
     std::vector<std::string> list;
@@ -409,7 +409,7 @@ TEST(ReadPropertyFromFileTest, ReturnsTrueAndExtractsValueForMatchingProperty)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, ReturnsFalseWhenPropertyNotFound)
+TEST(HelpersReadPropertyFromFileTest, ReturnsFalseWhenPropertyNotFound)
 {
     std::string path = writeTempFile("OTHER=value\n");
     std::vector<std::string> list;
@@ -419,7 +419,7 @@ TEST(ReadPropertyFromFileTest, ReturnsFalseWhenPropertyNotFound)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, SkipsCommentLines)
+TEST(HelpersReadPropertyFromFileTest, SkipsCommentLines)
 {
     std::string path = writeTempFile("# MYKEY=commented\nMYKEY=real\n");
     std::vector<std::string> list;
@@ -430,7 +430,7 @@ TEST(ReadPropertyFromFileTest, SkipsCommentLines)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, SkipsEmptyLines)
+TEST(HelpersReadPropertyFromFileTest, SkipsEmptyLines)
 {
     std::string path = writeTempFile("\n\nMYKEY=found\n");
     std::vector<std::string> list;
@@ -441,7 +441,7 @@ TEST(ReadPropertyFromFileTest, SkipsEmptyLines)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, ExtractsMultipleValuesInParenthesisFormat)
+TEST(HelpersReadPropertyFromFileTest, ExtractsMultipleValuesInParenthesisFormat)
 {
     std::string path = writeTempFile("MYKEY=(val1 val2 val3)\n");
     std::vector<std::string> list;
@@ -454,7 +454,7 @@ TEST(ReadPropertyFromFileTest, ExtractsMultipleValuesInParenthesisFormat)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, MatchesOnlyLineStartingWithProperty)
+TEST(HelpersReadPropertyFromFileTest, MatchesOnlyLineStartingWithProperty)
 {
     std::string path = writeTempFile("NOTMYKEY=x\nMYKEY=correct\n");
     std::vector<std::string> list;
@@ -465,7 +465,7 @@ TEST(ReadPropertyFromFileTest, MatchesOnlyLineStartingWithProperty)
     remove(path.c_str());
 }
 
-TEST(ReadPropertyFromFileTest, StopsAtFirstMatchingLine)
+TEST(HelpersReadPropertyFromFileTest, StopsAtFirstMatchingLine)
 {
     std::string path = writeTempFile("MYKEY=first\nMYKEY=second\n");
     std::vector<std::string> list;
