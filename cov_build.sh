@@ -22,7 +22,6 @@ set -e
 ##############################
 GITHUB_WORKSPACE="${PWD}"
 ls -la ${GITHUB_WORKSPACE}
-
 ############################
 # Build entservices-helpers
 echo "building entservices-helpers"
