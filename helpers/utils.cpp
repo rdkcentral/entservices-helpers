@@ -49,7 +49,7 @@ bool Helpers::IARM::init() {
     bool result = false;
 
     if (isConnected()) {
-        LOGINFO("IARM Bus already connected");
+        LOGINFO("IARM already connected");
         result = true;
     } else {
         res = IARM_Bus_Init(NAME);
