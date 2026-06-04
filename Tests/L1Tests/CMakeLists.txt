@@ -32,7 +32,8 @@ set (TEST_SRC
 set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
 )
-
+find_package(CURL REQUIRED)
+target_link_libraries(${MODULE_NAME} PRIVATE CURL::libcurl)
 # Headers are provided transitively by the installed WPEFrameworkHelpers target
 set (TEST_INC)
 
