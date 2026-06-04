@@ -83,9 +83,6 @@ if(IARMBUS_FOUND)
     target_compile_definitions(${MODULE_NAME} PRIVATE HAS_API_POWERSTATE)
 endif(IARMBUS_FOUND)
 
-find_package(CURL REQUIRED)
-target_link_libraries(${MODULE_NAME} PRIVATE CURL::libcurl)
-
 # ---- Install shared library --------------------------------------------------
 install(TARGETS ${MODULE_NAME}
     EXPORT  ${MODULE_NAME}Targets
