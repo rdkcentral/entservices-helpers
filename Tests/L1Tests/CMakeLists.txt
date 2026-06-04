@@ -33,7 +33,7 @@ set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
 )
 find_package(CURL REQUIRED)
-target_link_libraries(${MODULE_NAME} PRIVATE CURL::libcurl)
+
 # Headers are provided transitively by the installed WPEFrameworkHelpers target
 set (TEST_INC)
 
@@ -131,7 +131,7 @@ include_directories(${TEST_INC})
 
 target_link_directories(${MODULE_NAME} PUBLIC ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib/wpeframework/plugins)
 
-target_link_libraries(${MODULE_NAME} ${TEST_LIB})
+target_link_libraries(${MODULE_NAME} ${TEST_LIB} CURL::libcurl)
 
 target_include_directories(${MODULE_NAME}
         PUBLIC
