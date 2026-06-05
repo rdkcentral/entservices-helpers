@@ -49,7 +49,7 @@ bool Helpers::IARM::init() {
     bool result = false;
 
     if (isConnected()) {
-        LOGINFO("preeja IARM already connected");
+        LOGINFO("IARM already connected");
         result = true;
     } else {
         res = IARM_Bus_Init(NAME);
@@ -292,7 +292,7 @@ bool Helpers::isPluginActivated(const char* callSign)
     bool pluginActivated = false;
     if (status == Core::ERROR_NONE)
     {
-        LOGINFO("preeja Getting status for callSign %s, result: %s", callSign, joResult[0].JSONState.Data().c_str());
+        LOGINFO("Getting status for callSign %s, result: %s", callSign, joResult[0].JSONState.Data().c_str());
         pluginActivated = joResult[0].JSONState == PluginHost::IShell::ACTIVATED;
     }
     else
