@@ -19,7 +19,7 @@ env:
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME}}
   AUTOMATICS_PASSCODE: ${{ secrets. AUTOMATICS_PASSCODE}}
   ENABLE_CACHE: "false"
-  SKIP_COVERAGE: "true"
+
 
 jobs:
   L1-tests:
@@ -126,6 +126,11 @@ jobs:
           repository: rdkcentral/entservices-testframework
           path: entservices-testframework
           ref: develop
+
+      - name: Patch testframework to link helpers tests
+        run: |
+          sed -i 's|#PLUGIN_BLUETOOTH|#PLUGIN_HELPERS\nif(PLUGIN_HELPERS)\n    message(STATUS "linking libWPEFrameworkL1TestsHelpers to RdkServicesL1Test target")\n    target_link_libraries(${PROJECT_NAME} "${ENTSERVICES_REPO_L1TEST_LIB_PATH}/libWPEFrameworkL1TestsHelpers.so")\nendif()\n\n#PLUGIN_BLUETOOTH|' \
+            $GITHUB_WORKSPACE/entservices-testframework/Tests/L1Tests/CMakeLists.txt
 
       - name: Checkout entservices-helpers
         if: ${{ inputs.caller_source == 'local' }}
@@ -693,7 +698,7 @@ jobs:
           rm -rf $(pwd)/rdkL1TestResults.json
 
       - name: Generate coverage
-        if: ${{ !env.SKIP_COVERAGE &&matrix.coverage == 'with-coverage' && !env.ACT && inputs.caller_source != 'testframework' }}
+        if: ${{ matrix.coverage == 'with-coverage' && !env.ACT && inputs.caller_source != 'testframework' }}
         run: >
           cp $GITHUB_WORKSPACE/entservices-testframework/Tests/L1Tests/.lcovrc_l1 ~/.lcovrc
           &&
@@ -718,7 +723,6 @@ jobs:
           filtered_coverage.info
 
       - name: Upload artifacts
-        if: ${{ !env.SKIP_COVERAGE }}
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-L1-helpers
