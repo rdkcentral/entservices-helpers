@@ -32,6 +32,7 @@ set (TEST_SRC
 set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
 )
+find_package(CURL REQUIRED)
 
 # Headers are provided transitively by the installed WPEFrameworkHelpers target
 set (TEST_INC)
@@ -107,7 +108,22 @@ endmacro()
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
+
 add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Helpers.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cSettings.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_PluginInterfaceBuilder.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsfileExists.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsFile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsgetFileContent.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsgetRFCConfig.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsisValidInt.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsString.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSearchRDKProfile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilssyncPersistFile.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsSynchro.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsThreadRAII.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_UtilsProcess.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
+add_plugin_test_ex(PLUGIN_HELPERS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_Utils.cpp" "${HELPERS_INC}" "${HELPERS_LIBS}")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
@@ -115,7 +131,7 @@ include_directories(${TEST_INC})
 
 target_link_directories(${MODULE_NAME} PUBLIC ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib/wpeframework/plugins)
 
-target_link_libraries(${MODULE_NAME} ${TEST_LIB})
+target_link_libraries(${MODULE_NAME} ${TEST_LIB} CURL::libcurl)
 
 target_include_directories(${MODULE_NAME}
         PUBLIC
