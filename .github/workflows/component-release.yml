@@ -13,7 +13,7 @@ on:
 
 jobs:
   release:
-    uses: rdkcentral/entservices-testframework/.github/workflows/component-release.yml@topic/RDKEMW-test-2
+    uses: rdkcentral/entservices-testframework/.github/workflows/component-release.yml@feature/RDKEMW-18857
     with:
       tag: ${{ inputs.tag }}
     secrets: inherit
