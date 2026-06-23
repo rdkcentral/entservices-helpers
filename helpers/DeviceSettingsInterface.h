@@ -111,8 +111,10 @@
  *     }
  *
  *     // Private helpers called by Notification
- *     void OnDisplayFrameratePreChange(const string& fr) { /* dispatch event */ }
- *     void OnDisplayFrameratePostChange(const string& fr) { /* dispatch event */ }
+ *     void OnDisplayFrameratePreChange(const string& fr) { // dispatch event
+ *     }
+ *     void OnDisplayFrameratePostChange(const string& fr) { // dispatch event
+ *     }
  *
  *     Core::hresult GetDisplayFrameRate(string& framerate, bool& success) override {
  *         if (_videoDeviceHandle < 0) return Core::ERROR_UNAVAILABLE;
