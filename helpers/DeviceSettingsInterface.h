@@ -67,13 +67,10 @@
  *     // NOTE: do NOT inherit IDeviceSettingsXxx::INotification directly —
  *     //       use an inner Notification delegate class instead (see below).
  * {
- *     // -----------------------------------------------------------------------
- *     // Inner notification delegate — RECOMMENDED PATTERN for all client plugins
- *     // Register &_notification (not 'this') with the sub-interface.
- *     // -----------------------------------------------------------------------
- *     class Notification : public Exchange::IDeviceSettingsVideoDevice::INotification {
+ *     // Inner notification delegate — name conveys the DS sub-interface it handles
+ *     class DSVideoDeviceNotification : public Exchange::IDeviceSettingsVideoDevice::INotification {
  *     public:
- *         explicit Notification(FrameRateImplementation& p) : _parent(p) {}
+ *         explicit DSVideoDeviceNotification(FrameRateImplementation& p) : _parent(p) {}
  *
  *         void OnDisplayFrameratePreChange(const string& fr) override {
  *             _parent.OnDisplayFrameratePreChange(fr);
@@ -82,15 +79,15 @@
  *             _parent.OnDisplayFrameratePostChange(fr);
  *         }
  *
- *         BEGIN_INTERFACE_MAP(Notification)
+ *         BEGIN_INTERFACE_MAP(DSVideoDeviceNotification)
  *             INTERFACE_ENTRY(Exchange::IDeviceSettingsVideoDevice::INotification)
  *         END_INTERFACE_MAP
  *     private:
  *         FrameRateImplementation& _parent;
  *     };
  *
- *     int32_t    _videoDeviceHandle { -1 };
- *     Notification _notification    { *this };  // delegate instance
+ *     int32_t                               _videoDeviceHandle { -1 };
+ *     Core::Sink<DSVideoDeviceNotification> _notification;  // initialized with *this in constructor
  *
  *     uint32_t Configure(PluginHost::IShell* service) override {
  *         DeviceSettingsClientHelper::Open(service);
@@ -101,7 +98,7 @@
  *         auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
  *         if (vd) {
  *             vd->GetVideoDeviceHandle(0, _videoDeviceHandle);
- *             vd->Register(&_notification);   // <-- pass delegate, not 'this'
+ *             vd->Register(&_notification);   // <-- pass &delegate, not 'this'
  *             vd->Release();
  *         }
  *     }

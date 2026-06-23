@@ -59,25 +59,31 @@
  *     , public DeviceSettingsClientHelper   // root IDeviceSettings COM-RPC link
  *     // NOTE: do NOT inherit INotification directly — use an inner delegate class
  * {
- *     // Inner notification delegate (recommended pattern)
- *     class Notification : public Exchange::IDeviceSettingsVideoDevice::INotification {
+ *     // Inner notification delegate — name conveys the DS sub-interface it handles
+ *     class DSVideoDeviceNotification : public Exchange::IDeviceSettingsVideoDevice::INotification {
  *     public:
- *         explicit Notification(FrameRateImplementation& p) : _parent(p) {}
+ *         explicit DSVideoDeviceNotification(FrameRateImplementation& p) : _parent(p) {}
  *         void OnDisplayFrameratePreChange(const string& fr) override {
  *             _parent.OnDisplayFrameratePreChange(fr);
  *         }
  *         void OnDisplayFrameratePostChange(const string& fr) override {
  *             _parent.OnDisplayFrameratePostChange(fr);
  *         }
- *         BEGIN_INTERFACE_MAP(Notification)
+ *         BEGIN_INTERFACE_MAP(DSVideoDeviceNotification)
  *             INTERFACE_ENTRY(Exchange::IDeviceSettingsVideoDevice::INotification)
  *         END_INTERFACE_MAP
  *     private:
  *         FrameRateImplementation& _parent;
  *     };
  *
- *     int32_t      _videoDeviceHandle { -1 };
- *     Notification _notification       { *this };
+ *     int32_t                               _videoDeviceHandle { -1 };
+ *     Core::Sink<DSVideoDeviceNotification> _notification;  // initialized with *this in constructor
+ *
+ *     // Constructor — initialize _notification with *this in the member initializer list
+ *     FrameRateImplementation()
+ *         : ...
+ *         , _notification(*this)   // mirrors USBMassStorage _USB_DeviceNotification(*this) pattern
+ *     {}
  *
  *     uint32_t Configure(PluginHost::IShell* service) override {
  *         DeviceSettingsClientHelper::Open(service);
