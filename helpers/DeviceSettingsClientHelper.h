@@ -147,7 +147,7 @@ class DeviceSettingsClientHelper
 
 public:
     // Default DeviceSettings Thunder plugin callsign
-    static constexpr const char* kDefaultCallsign = "DeviceSettings";
+    static constexpr const char* kDefaultCallsign = "org.rdk.DeviceSettings";
 
 public:
     DeviceSettingsClientHelper()
@@ -175,7 +175,7 @@ public:
      * called before Open() returns.
      *
      * @param service   IShell* provided to Configure()
-     * @param callsign  Plugin callsign (default: "DeviceSettings")
+     * @param callsign  Plugin callsign (default: "org.rdk.DeviceSettings")
      */
     uint32_t Open(PluginHost::IShell* service, const string& callsign = kDefaultCallsign)
     {
