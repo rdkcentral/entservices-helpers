@@ -17,4 +17,4 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
     secrets:
-      ssh-keys: ${{ secrets.RDKCM_DEPLOY_KEY }}
+      RDKCM_DEPLOY_KEY: ${{ secrets.RDKCM_DEPLOY_KEY }}
