@@ -427,14 +427,12 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
 
     IVideoPortTypeConfigIterator* typeIt = nullptr;
     IVideoPortPortConfigIterator* portIt = nullptr;
-    IVideoPortResolutionIterator* resIt  = nullptr;
 
-    const uint32_t result = iface->GetVideoPortConfig(typeIt, portIt, resIt);
+    const uint32_t result = iface->GetVideoPortConfig(typeIt, portIt);
     if (result != Core::ERROR_NONE) {
         LOGERR("LoadVideoPortConfig: GetVideoPortConfig failed: %u", result);
         if (typeIt) typeIt->Release();
         if (portIt) portIt->Release();
-        if (resIt)  resIt->Release();
         return false;
     }
 
@@ -454,12 +452,32 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
         portIt->Release();
     }
 
-    if (resIt != nullptr) {
-        VideoPortResolution res;
-        while (resIt->Next(res)) {
-            store.resolutions.push_back(res);
+    // Resolution configuration is now retrieved per video port type.
+    for (size_t i = 0; i < store.typeConfigs.size(); ++i) {
+        IVideoPortResolutionIterator* resIt = nullptr;
+        const uint32_t resResult = iface->GetVideoPortResolutionConfig(store.typeConfigs[i].typeId, resIt);
+        if (resResult != Core::ERROR_NONE) {
+            LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
+                static_cast<int>(store.typeConfigs[i].typeId), resResult);
+            continue;
         }
-        resIt->Release();
+
+        if (resIt != nullptr) {
+            VideoPortResolution res;
+            while (resIt->Next(res)) {
+                const auto it = std::find_if(
+                    store.resolutions.begin(),
+                    store.resolutions.end(),
+                    [&res](const VideoPortResolution& existing) {
+                        return EqualsIgnoreCase(existing.name, res.name);
+                    });
+
+                if (it == store.resolutions.end()) {
+                    store.resolutions.push_back(res);
+                }
+            }
+            resIt->Release();
+        }
     }
 
     LOGINFO("LoadVideoPortConfig: types=%zu ports=%zu resolutions=%zu",
