@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -456,11 +457,14 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
     for (size_t i = 0; i < store.typeConfigs.size(); ++i) {
         IVideoPortResolutionIterator* resIt = nullptr;
         const uint32_t resResult = iface->GetVideoPortResolutionConfig(store.typeConfigs[i].typeId, resIt);
-        if (resResult != Core::ERROR_NONE) {
-            LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
-                static_cast<int>(store.typeConfigs[i].typeId), resResult);
-            continue;
-        }
+if (resResult != Core::ERROR_NONE) {
+    LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
+        static_cast<int>(store.typeConfigs[i].typeId), resResult);
+    if (resIt) {
+        resIt->Release();
+    }
+    continue;
+}
 
         if (resIt != nullptr) {
             VideoPortResolution res;
