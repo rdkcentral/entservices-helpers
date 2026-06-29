@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -30,11 +29,41 @@
 #include <interfaces/IDeviceSettingsVideoDevice.h>
 #include <interfaces/IDeviceSettingsVideoPort.h>
 
-#include "DeviceSettingsTypes.h"
 #include "UtilsLogging.h"
 
 namespace WPEFramework {
 namespace Plugin {
+
+using DeviceSettingsAudio = WPEFramework::Exchange::IDeviceSettingsAudio;
+using DeviceSettingsFPD = WPEFramework::Exchange::IDeviceSettingsFPD;
+using DeviceSettingsVideoDevice = WPEFramework::Exchange::IDeviceSettingsVideoDevice;
+using DeviceSettingsVideoPort = WPEFramework::Exchange::IDeviceSettingsVideoPort;
+
+using AudioPortType = DeviceSettingsAudio::AudioPortType;
+using AudioTypeConfigInfo = DeviceSettingsAudio::AudioTypeConfigInfo;
+using AudioPortConfigInfo = DeviceSettingsAudio::AudioPortConfigInfo;
+using IAudioTypeConfigIterator = DeviceSettingsAudio::IAudioTypeConfigIterator;
+using IAudioPortConfigIterator = DeviceSettingsAudio::IAudioPortConfigIterator;
+
+using VideoPortType = DeviceSettingsVideoPort::VideoPort;
+using VideoPortResolution = DeviceSettingsVideoPort::VideoPortResolution;
+using VideoPortTypeConfig = DeviceSettingsVideoPort::VideoPortTypeConfig;
+using VideoPortPortConfig = DeviceSettingsVideoPort::VideoPortPortConfig;
+using IVideoPortTypeConfigIterator = DeviceSettingsVideoPort::IVideoPortTypeConfigIterator;
+using IVideoPortPortConfigIterator = DeviceSettingsVideoPort::IVideoPortPortConfigIterator;
+using IVideoPortResolutionIterator = DeviceSettingsVideoPort::IVideoPortResolutionIterator;
+
+using VideoDeviceConfigInfo = DeviceSettingsVideoDevice::VideoDeviceConfigInfo;
+using IVideoDeviceConfigIterator = DeviceSettingsVideoDevice::IVideoDeviceConfigIterator;
+
+using FPDColorConfig = DeviceSettingsFPD::FPDColorConfig;
+using FPDIndicatorConfig = DeviceSettingsFPD::FPDIndicatorConfig;
+using FPDTextDisplayConfig = DeviceSettingsFPD::FPDTextDisplayConfig;
+using FPDColorBinding = DeviceSettingsFPD::FPDColorBinding;
+using IFPDTextDisplayConfigIterator = DeviceSettingsFPD::IFPDTextDisplayConfigIterator;
+using IFPDIndicatorConfigIterator = DeviceSettingsFPD::IFPDIndicatorConfigIterator;
+using IFPDColorConfigIterator = DeviceSettingsFPD::IFPDColorConfigIterator;
+using IFPDColorBindingIterator = DeviceSettingsFPD::IFPDColorBindingIterator;
 
 // ============================================================================
 // Internal helpers (inline)
@@ -457,14 +486,14 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
     for (size_t i = 0; i < store.typeConfigs.size(); ++i) {
         IVideoPortResolutionIterator* resIt = nullptr;
         const uint32_t resResult = iface->GetVideoPortResolutionConfig(store.typeConfigs[i].typeId, resIt);
-if (resResult != Core::ERROR_NONE) {
-    LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
-        static_cast<int>(store.typeConfigs[i].typeId), resResult);
-    if (resIt) {
-        resIt->Release();
-    }
-    continue;
-}
+        if (resResult != Core::ERROR_NONE) {
+            LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
+                static_cast<int>(store.typeConfigs[i].typeId), resResult);
+            if (resIt) {
+                resIt->Release();
+            }
+	    continue;
+        }
 
         if (resIt != nullptr) {
             VideoPortResolution res;
