@@ -41,9 +41,9 @@
  *
  *   | Old libds API                                     | AcquireSubInterface<T> where T =                |
  *   |---------------------------------------------------|-------------------------------------------------|
- *   | device::VideoDevice::getCurrentDisframerate()     | Exchange::IDeviceSettingsVideoDevice            |
- *   | device::VideoDevice::setDisplayframerate()        | Exchange::IDeviceSettingsVideoDevice            |
- *   | device::VideoDevice::getFRFMode/setFRFMode()      | Exchange::IDeviceSettingsVideoDevice            |
+ *   | device::VideoDevice::getCurrentDisplayframerate()  | Exchange::IDeviceSettingsVideoDevice            |
+ *   | device::VideoDevice::setDisplayframerate()         | Exchange::IDeviceSettingsVideoDevice            |
+ *   | device::VideoDevice::getFRFMode/setFRFMode()       | Exchange::IDeviceSettingsVideoDevice            |
  *   | device::VideoOutputPort::setResolution()          | Exchange::IDeviceSettingsVideoPort              |
  *   | device::VideoOutputPort::getHDCPStatus()          | Exchange::IDeviceSettingsVideoPort              |
  *   | device::AudioOutputPort::setStereoMode()          | Exchange::IDeviceSettingsAudio                  |

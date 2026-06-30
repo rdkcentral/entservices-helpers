@@ -42,7 +42,7 @@
  * ## Activation lifecycle
  *
  *   1. client calls DeviceSettingsClientHelper::Open(service)  in its Configure(IShell*)
- *   2. Thunder connects asynchronously to "DeviceSettings"
+ *   2. Thunder connects asynchronously to "org.rdk.DeviceSettings" (default callsign)
  *   3. DeviceSettings activates → Operational(true) →
  *        OnDeviceSettingsActivated()  ← override to (re-)register events
  *   4. DeviceSettings deactivates (crash/restart) → Operational(false) →
@@ -156,8 +156,7 @@ public:
     {
     }
 
-    virtual ~DeviceSettingsClientHelper() = default;
-
+    virtual ~DeviceSettingsClientHelper() { Close(); }
     DeviceSettingsClientHelper(const DeviceSettingsClientHelper&)            = delete;
     DeviceSettingsClientHelper& operator=(const DeviceSettingsClientHelper&) = delete;
     DeviceSettingsClientHelper(DeviceSettingsClientHelper&&)                 = delete;
@@ -179,9 +178,14 @@ public:
      */
     uint32_t Open(PluginHost::IShell* service, const string& callsign = kDefaultCallsign)
     {
-        ASSERT(service != nullptr);
-        ASSERT(_service == nullptr);
-
+        if (service == nullptr) {
+            LOGERR("DeviceSettingsClientHelper::Open() failed: service is nullptr");
+            return Core::ERROR_BAD_REQUEST;
+        }
+        if (_service != nullptr) {
+            LOGERR("DeviceSettingsClientHelper::Open(%s) called while already open", callsign.c_str());
+            return Core::ERROR_GENERAL;
+        }
         _service  = service;
         _service->AddRef();
         _callsign = callsign;
@@ -247,8 +251,8 @@ public:
         SUBINTERFACE* sub = root->QueryInterface<SUBINTERFACE>();
         root->Release();   // root reference balanced — sub has its own AddRef from QI
         if (sub == nullptr) {
-            LOGERR("DeviceSettingsClientHelper[%s]: QueryInterface<sub> returned nullptr",
-                   _callsign.c_str());
+            LOGERR("DeviceSettingsClientHelper[%s]: QueryInterface<0x%08x> returned nullptr",
+                   _callsign.c_str(), static_cast<uint32_t>(SUBINTERFACE::ID));
         }
         return sub;
     }
