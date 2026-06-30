@@ -128,15 +128,17 @@
 
 #include "DeviceSettingsClientHelper.h"
 
-// All DeviceSettings sub-interface headers (convenience "include everything" header). If you want to reduce compile time, include only the specific <interfaces/IDeviceSettingsXxx.h> headers your plugin needs instead of this file.
-#include <interfaces/IDeviceSettingsAudio.h>
+// DeviceSettingsClientHelper.h already includes:
+//   IDeviceSettings.h, IDeviceSettingsAudio.h, IDeviceSettingsFPD.h,
+//   IDeviceSettingsVideoDevice.h, IDeviceSettingsVideoPort.h
+//
+// The headers below complete the full sub-interface set for plugins that also
+// need CompositeIn, Display, HDMIIn, or Host.  If you only need the subset
+// above, include DeviceSettingsClientHelper.h directly to reduce compile time.
 #include <interfaces/IDeviceSettingsCompositeIn.h>
 #include <interfaces/IDeviceSettingsDisplay.h>
-#include <interfaces/IDeviceSettingsFPD.h>
 #include <interfaces/IDeviceSettingsHDMIIn.h>
 #include <interfaces/IDeviceSettingsHost.h>
-#include <interfaces/IDeviceSettingsVideoDevice.h>
-#include <interfaces/IDeviceSettingsVideoPort.h>
 
 // DeviceSettingsClientHelper is the single class all clients inherit.
 // There are no per-sub-interface typedefs — use DeviceSettingsClientHelper
