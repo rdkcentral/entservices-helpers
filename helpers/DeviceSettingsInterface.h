@@ -128,7 +128,7 @@
 
 #include "DeviceSettingsClientHelper.h"
 
-// All DeviceSettings sub-interface headers — include the ones your plugin needs
+// All DeviceSettings sub-interface headers (convenience "include everything" header). If you want to reduce compile time, include only the specific <interfaces/IDeviceSettingsXxx.h> headers your plugin needs instead of this file.
 #include <interfaces/IDeviceSettingsAudio.h>
 #include <interfaces/IDeviceSettingsCompositeIn.h>
 #include <interfaces/IDeviceSettingsDisplay.h>
