@@ -41,7 +41,7 @@
  *
  * ## Activation lifecycle
  *
- *   1. client calls DSHelper::Open(service)  in its Configure(IShell*)
+ *   1. client calls DeviceSettingsClientHelper::Open(service)  in its Configure(IShell*)
  *   2. Thunder connects asynchronously to "DeviceSettings"
  *   3. DeviceSettings activates → Operational(true) →
  *        OnDeviceSettingsActivated()  ← override to (re-)register events
@@ -190,6 +190,9 @@ public:
         if (result != Core::ERROR_NONE) {
             LOGERR("DeviceSettingsClientHelper::Open(%s) failed: %u",
                    callsign.c_str(), result);
+            _service->Release();
+            _service = nullptr;
+            _callsign = kDefaultCallsign;
         } else {
             LOGINFO("DeviceSettingsClientHelper::Open(%s) succeeded", callsign.c_str());
         }
@@ -265,7 +268,7 @@ protected:
      *       auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
      *       if (vd) {
      *           vd->GetVideoDeviceHandle(0, _handle);
-     *           vd->Register(this);
+     *           vd->Register(&_notification);
      *           vd->Release();
      *       }
      *   }
