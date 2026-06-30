@@ -1,4 +1,4 @@
-name: Component Release
+name: Component Release Main
 
 permissions:
   contents: write
@@ -13,7 +13,7 @@ on:
 
 jobs:
   release:
-    uses: rdkcentral/build_tools_workflows/.github/workflows/component-release.yml@feature/RDKEMW-18857
+    uses: rdkcentral/build_tools_workflows/.github/workflows/component-release-main.yml@develop
     with:
       tag: ${{ inputs.tag }}
     secrets:
