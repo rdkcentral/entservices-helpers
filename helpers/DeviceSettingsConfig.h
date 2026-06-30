@@ -396,7 +396,7 @@ struct FrontPanelConfigStore {
 
     inline bool IsEmpty() const
     {
-        return indicators.empty() && textDisplays.empty();
+        return indicators.empty() && textDisplays.empty() && colors.empty() && colorBindings.empty();
     }
 
     inline std::vector<FPDIndicatorConfig> GetIndicators() const
