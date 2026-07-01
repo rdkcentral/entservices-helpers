@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -253,7 +254,7 @@ struct VideoPortConfigStore {
         return false;
     }
 
-    inline std::vector<VideoPortResolution> GetResolutions() const
+    inline const std::vector<VideoPortResolution>& GetResolutions() const
     {
         return resolutions;
     }
@@ -355,7 +356,7 @@ struct VideoDeviceConfigStore {
         return deviceConfigs.empty();
     }
 
-    inline std::vector<VideoDeviceConfigInfo> GetAllConfigs() const
+    inline const std::vector<VideoDeviceConfigInfo>& GetAllConfigs() const
     {
         return deviceConfigs;
     }
@@ -399,22 +400,22 @@ struct FrontPanelConfigStore {
         return indicators.empty() && textDisplays.empty() && colors.empty() && colorBindings.empty();
     }
 
-    inline std::vector<FPDIndicatorConfig> GetIndicators() const
+    inline const std::vector<FPDIndicatorConfig>& GetIndicators() const
     {
         return indicators;
     }
 
-    inline std::vector<FPDColorConfig> GetColors() const
+    inline const std::vector<FPDColorConfig>& GetColors() const
     {
         return colors;
     }
 
-    inline std::vector<FPDTextDisplayConfig> GetTextDisplays() const
+    inline const std::vector<FPDTextDisplayConfig>& GetTextDisplays() const
     {
         return textDisplays;
     }
 
-    inline std::vector<FPDColorBinding> GetColorBindings() const
+    inline const std::vector<FPDColorBinding>& GetColorBindings() const
     {
         return colorBindings;
     }
@@ -492,7 +493,7 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
             if (resIt) {
                 resIt->Release();
             }
-	    continue;
+            continue;
         }
 
         if (resIt != nullptr) {
