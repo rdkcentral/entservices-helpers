@@ -170,6 +170,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -279,13 +280,15 @@ struct AudioPortEntry {
 struct VideoPortConfigStore {
     std::vector<VideoPortTypeConfig> typeConfigs;
     std::vector<VideoPortPortConfig> portConfigs;
-    std::vector<VideoPortResolution> resolutions;
+    std::vector<VideoPortResolution> resolutions;             ///< Deduplicated union across all port types
+    std::map<VideoPortType, std::vector<VideoPortResolution>> resolutionsByType; ///< Per-type; keyed by VideoPort enum (from GetVideoPortResolutionConfig)
 
     inline void Clear()
     {
         typeConfigs.clear();
         portConfigs.clear();
         resolutions.clear();
+        resolutionsByType.clear();
     }
 
     inline bool IsEmpty() const
@@ -410,6 +413,24 @@ struct VideoPortConfigStore {
     inline std::vector<VideoPortResolution> GetResolutions() const
     {
         return resolutions;
+    }
+
+    /**
+     * @brief Get the supported resolutions for a specific VideoPort type.
+     *
+     * Returns the resolution list loaded from GetVideoPortResolutionConfig()
+     * for the requested @p typeId.  Returns false (and leaves @p out unchanged)
+     * if no resolutions were loaded for that type.
+     */
+    inline bool GetResolutionsForType(VideoPortType typeId,
+                                       std::vector<VideoPortResolution>& out) const
+    {
+        const auto it = resolutionsByType.find(typeId);
+        if (it == resolutionsByType.end() || it->second.empty()) {
+            return false;
+        }
+        out = it->second;
+        return true;
     }
 };
 
@@ -638,13 +659,15 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
         portIt->Release();
     }
 
-    // Resolution configuration is retrieved per video port type.
+    // Resolution configuration is retrieved per video port type via GetVideoPortResolutionConfig().
+    // Results are stored in both resolutionsByType (per-type) and resolutions (deduplicated union).
     for (size_t i = 0; i < store.typeConfigs.size(); ++i) {
+        const VideoPortType portType = store.typeConfigs[i].typeId;
         IVideoPortResolutionIterator* resIt = nullptr;
-        const uint32_t resResult = iface->GetVideoPortResolutionConfig(store.typeConfigs[i].typeId, resIt);
+        const uint32_t resResult = iface->GetVideoPortResolutionConfig(portType, resIt);
         if (resResult != Core::ERROR_NONE) {
             LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
-                static_cast<int>(store.typeConfigs[i].typeId), resResult);
+                static_cast<int>(portType), resResult);
             if (resIt) {
                 resIt->Release();
             }
@@ -652,26 +675,75 @@ inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, Video
         }
 
         if (resIt != nullptr) {
+            std::vector<VideoPortResolution>& typeResolutions = store.resolutionsByType[portType];
             VideoPortResolution res;
             while (resIt->Next(res)) {
+                typeResolutions.push_back(res);
+
+                // Add to flat deduplicated union
                 const auto it = std::find_if(
                     store.resolutions.begin(),
                     store.resolutions.end(),
                     [&res](const VideoPortResolution& existing) {
                         return EqualsIgnoreCase(existing.name, res.name);
                     });
-
                 if (it == store.resolutions.end()) {
                     store.resolutions.push_back(res);
                 }
             }
             resIt->Release();
+            LOGINFO("LoadVideoPortConfig: type=%d resolutions=%zu",
+                    static_cast<int>(portType), typeResolutions.size());
         }
     }
 
     LOGINFO("LoadVideoPortConfig: types=%zu ports=%zu resolutions=%zu",
             store.typeConfigs.size(), store.portConfigs.size(), store.resolutions.size());
     return true;
+}
+
+/**
+ * @brief Load the supported resolutions for a single VideoPort type.
+ *
+ * Thin wrapper around GetVideoPortResolutionConfig() for callers that need
+ * resolutions for one specific port type without loading the full config.
+ *
+ * @param iface     Raw IDeviceSettingsVideoPort pointer (caller owns, must not be null).
+ * @param portType  The VideoPort enum value to query (e.g. DS_VIDEO_PORT_TYPE_HDMI).
+ * @param out       Filled with the supported VideoPortResolution entries on success.
+ * @return true on success, false on failure or empty iterator.
+ */
+inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* iface,
+                                           VideoPortType portType,
+                                           std::vector<VideoPortResolution>& out)
+{
+    out.clear();
+
+    if (iface == nullptr) {
+        LOGERR("LoadVideoPortResolutionConfig: iface is null");
+        return false;
+    }
+
+    IVideoPortResolutionIterator* resIt = nullptr;
+    const uint32_t result = iface->GetVideoPortResolutionConfig(portType, resIt);
+    if (result != Core::ERROR_NONE) {
+        LOGERR("LoadVideoPortResolutionConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
+               static_cast<int>(portType), result);
+        if (resIt) resIt->Release();
+        return false;
+    }
+
+    if (resIt != nullptr) {
+        VideoPortResolution res;
+        while (resIt->Next(res)) {
+            out.push_back(res);
+        }
+        resIt->Release();
+    }
+
+    LOGINFO("LoadVideoPortResolutionConfig: type=%d resolutions=%zu",
+            static_cast<int>(portType), out.size());
+    return !out.empty();
 }
 
 inline bool LoadAudioConfig(Exchange::IDeviceSettingsAudio* iface, AudioConfigStore& store)
@@ -950,6 +1022,23 @@ public:
         auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
         if (!iface) return false;
         const bool ok = ::WPEFramework::Plugin::LoadVideoPortConfig(iface, store);
+        iface->Release();
+        return ok;
+    }
+
+    /**
+     * @brief Convenience: acquire IDeviceSettingsVideoPort and load the
+     *        supported resolutions for a single @p portType into @p out.
+     *
+     * Useful for re-querying resolutions for one port type after the full
+     * config has already been loaded, e.g. after a display hotplug event.
+     */
+    bool LoadVideoPortResolutionConfig(VideoPortType portType,
+                                        std::vector<VideoPortResolution>& out)
+    {
+        auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
+        if (!iface) return false;
+        const bool ok = ::WPEFramework::Plugin::LoadVideoPortResolutionConfig(iface, portType, out);
         iface->Release();
         return ok;
     }
