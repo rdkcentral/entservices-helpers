@@ -205,8 +205,8 @@ using IAudioPortConfigIterator  = DeviceSettingsAudio::IAudioPortConfigIterator;
 using StereoMode                = DeviceSettingsAudio::StereoMode;
 using AudioCapabilities         = DeviceSettingsAudio::AudioCapabilities;
 using AudioFormat               = DeviceSettingsAudio::AudioFormat;
-using DuckingType               = DeviceSettingsAudio::DuckingType;
-using DuckingAction             = DeviceSettingsAudio::DuckingAction;
+using DuckingType               = DeviceSettingsAudio::AudioDuckingType;
+using DuckingAction             = DeviceSettingsAudio::AudioDuckingAction;
 
 using VideoPortType                  = DeviceSettingsVideoPort::VideoPort;
 using VideoPortResolution            = DeviceSettingsVideoPort::VideoPortResolution;
@@ -224,11 +224,11 @@ using VideoDeviceConfigInfo          = DeviceSettingsVideoDevice::VideoDeviceCon
 using IVideoDeviceConfigIterator     = DeviceSettingsVideoDevice::IVideoDeviceConfigIterator;
 // VideoDevice: operational enum types used in COM-RPC client code
 using VideoZoom                 = DeviceSettingsVideoDevice::VideoZoom;
-using VideoCodingFormat         = DeviceSettingsVideoDevice::VideoCodingFormat;
+//using VideoCodingFormat         = DeviceSettingsVideoDevice::VideoCodingFormat;
 
 // Display: operational enum types used in COM-RPC client code
-using AVIContentType            = DeviceSettingsDisplay::AVIContentType;
-using AVIScanInformation        = DeviceSettingsDisplay::AVIScanInformation;
+using AVIContentType            = DeviceSettingsDisplay::DisplayAVIContentType;
+using AVIScanInformation        = DeviceSettingsDisplay::DisplayAVIScanInformation;
 
 using FPDColorConfig                 = DeviceSettingsFPD::FPDColorConfig;
 using FPDIndicatorConfig             = DeviceSettingsFPD::FPDIndicatorConfig;
