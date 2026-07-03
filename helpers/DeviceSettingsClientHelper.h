@@ -178,6 +178,7 @@
 #include <interfaces/IDeviceSettingsAudio.h>
 #include <interfaces/IDeviceSettingsDisplay.h>
 #include <interfaces/IDeviceSettingsFPD.h>
+#include <interfaces/IDeviceSettingsHost.h>
 #include <interfaces/IDeviceSettingsVideoDevice.h>
 #include <interfaces/IDeviceSettingsVideoPort.h>
 #include <plugins/plugins.h>
@@ -193,6 +194,7 @@ namespace Plugin {
 using DeviceSettingsAudio       = WPEFramework::Exchange::IDeviceSettingsAudio;
 using DeviceSettingsDisplay     = WPEFramework::Exchange::IDeviceSettingsDisplay;
 using DeviceSettingsFPD         = WPEFramework::Exchange::IDeviceSettingsFPD;
+using DeviceSettingsHost        = WPEFramework::Exchange::IDeviceSettingsHost;
 using DeviceSettingsVideoDevice = WPEFramework::Exchange::IDeviceSettingsVideoDevice;
 using DeviceSettingsVideoPort   = WPEFramework::Exchange::IDeviceSettingsVideoPort;
 
@@ -202,11 +204,8 @@ using AudioPortConfigInfo       = DeviceSettingsAudio::AudioPortConfigInfo;
 using IAudioTypeConfigIterator  = DeviceSettingsAudio::IAudioTypeConfigIterator;
 using IAudioPortConfigIterator  = DeviceSettingsAudio::IAudioPortConfigIterator;
 // Audio: operational enum types used in COM-RPC client code
-using StereoMode                = DeviceSettingsAudio::StereoMode;
-using AudioCapabilities         = DeviceSettingsAudio::AudioCapabilities;
-using AudioFormat               = DeviceSettingsAudio::AudioFormat;
-using DuckingType               = DeviceSettingsAudio::DuckingType;
-using DuckingAction             = DeviceSettingsAudio::DuckingAction;
+using AudioDuckingType          = DeviceSettingsAudio::AudioDuckingType;
+using AudioDuckingAction        = DeviceSettingsAudio::AudioDuckingAction;
 
 using VideoPortType                  = DeviceSettingsVideoPort::VideoPort;
 using VideoPortResolution            = DeviceSettingsVideoPort::VideoPortResolution;
@@ -224,11 +223,11 @@ using VideoDeviceConfigInfo          = DeviceSettingsVideoDevice::VideoDeviceCon
 using IVideoDeviceConfigIterator     = DeviceSettingsVideoDevice::IVideoDeviceConfigIterator;
 // VideoDevice: operational enum types used in COM-RPC client code
 using VideoZoom                 = DeviceSettingsVideoDevice::VideoZoom;
-using VideoCodingFormat         = DeviceSettingsVideoDevice::VideoCodingFormat;
+using VideoCodec                = DeviceSettingsVideoDevice::VideoCodec;
 
 // Display: operational enum types used in COM-RPC client code
-using AVIContentType            = DeviceSettingsDisplay::AVIContentType;
-using AVIScanInformation        = DeviceSettingsDisplay::AVIScanInformation;
+using DisplayAVIContentType     = DeviceSettingsDisplay::DisplayAVIContentType;
+using DisplayAVIScanInformation = DeviceSettingsDisplay::DisplayAVIScanInformation;
 
 using FPDColorConfig                 = DeviceSettingsFPD::FPDColorConfig;
 using FPDIndicatorConfig             = DeviceSettingsFPD::FPDIndicatorConfig;
