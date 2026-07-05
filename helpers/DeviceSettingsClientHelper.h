@@ -180,6 +180,7 @@
 #include <interfaces/IDeviceSettingsFPD.h>
 #include <interfaces/IDeviceSettingsHost.h>
 #include <interfaces/IDeviceSettingsVideoDevice.h>
+#include <interfaces/IDeviceSettingsHDMIIn.h>
 #include <interfaces/IDeviceSettingsVideoPort.h>
 #include <plugins/plugins.h>
 #include "UtilsLogging.h"
@@ -218,6 +219,7 @@ using IVideoPortResolutionIterator   = DeviceSettingsVideoPort::IVideoPortResolu
 using TVResolution              = DeviceSettingsVideoPort::TVResolution;
 using HDRStandard               = DeviceSettingsVideoPort::HDRStandard;
 using DisplayColorDepth         = DeviceSettingsVideoPort::DisplayColorDepth;
+using VideoPortSurroundMode     = DeviceSettingsVideoPort::VideoPortSurroundMode;
 
 using VideoDeviceConfigInfo          = DeviceSettingsVideoDevice::VideoDeviceConfigInfo;
 using IVideoDeviceConfigIterator     = DeviceSettingsVideoDevice::IVideoDeviceConfigIterator;
@@ -271,6 +273,69 @@ inline std::string BuildAudioPortName(AudioPortType portType, int32_t index)
     case AudioPortType::AUDIO_PORT_TYPE_HEADPHONE: return std::string("HEADPHONE") + std::to_string(index);
     default:                                        return std::string("AUDIO")     + std::to_string(index);
     }
+}
+
+/**
+ * @brief Returns the DS_IARM-compatible name string for a StereoMode enum value.
+ *
+ * Mirrors AudioStereoMode::getName() from libds (audioStereoMode.cpp).
+ * Used when converting AudioTypeConfigInfo::supportedStereoModeMask bits to
+ * mode name strings — each port TYPE has its own mask, and each bit position
+ * corresponds to the integer value of the StereoMode enum.
+ *
+ * @return Pointer to a static string literal, or nullptr for unknown modes.
+ */
+inline const char* StereoModeToName(Exchange::IDeviceSettingsAudio::StereoMode mode)
+{
+    switch (mode) {
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_MONO:        return "MONO";
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_STEREO:      return "STEREO";
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_SURROUND:    return "SURROUND";
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_PASSTHROUGH: return "PASSTHRU";
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_DD:          return "DOLBYDIGITAL";
+    case Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_DDPLUS:      return "DOLBYDIGITALPLUS";
+    default:                                                                    return nullptr;
+    }
+}
+
+/**
+ * @brief Returns the DS_IARM-compatible mode name string for a StereoMode,
+ *        falling back to "STEREO" for unknown/unmapped values.
+ *
+ * Mirrors AudioStereoMode::toString() from libds, used when building a
+ * getSoundMode response string.  Unlike StereoModeToName(), this always
+ * returns a valid non-null string.
+ */
+inline const char* StereoModeToString(Exchange::IDeviceSettingsAudio::StereoMode mode)
+{
+    const char* name = StereoModeToName(mode);
+    return (name != nullptr) ? name : "STEREO";
+}
+
+/**
+ * @brief Returns the ordered list of all StereoMode values recognised by the
+ *        DeviceSettings COM-RPC stack.
+ *
+ * Each value in AudioTypeConfigInfo::supportedStereoModeMask is a bitmask where
+ * bit N set means the StereoMode whose integer value is N is supported by that
+ * port type.  Iterate this list and check each bit rather than iterating all 32
+ * bits of the mask.
+ *
+ * Combined with StereoModeToName() this replaces the libds
+ * AudioOutputPortType::getSupportedStereoModes() / AudioStereoMode::getName()
+ * pattern used in DS_IARM.
+ */
+inline const std::vector<Exchange::IDeviceSettingsAudio::StereoMode>& KnownStereoModes()
+{
+    static const std::vector<Exchange::IDeviceSettingsAudio::StereoMode> kModes = {
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_MONO,
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_STEREO,
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_SURROUND,
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_PASSTHROUGH,
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_DD,
+        Exchange::IDeviceSettingsAudio::StereoMode::AUDIO_STEREO_DDPLUS,
+    };
+    return kModes;
 }
 
 // ============================================================================
@@ -472,7 +537,7 @@ struct AudioConfigStore {
         return portConfigs.empty() && typeConfigs.empty();
     }
 
-    inline bool BuildAudioPortEntries(std::vector<AudioPortEntry>& entries) const
+    inline bool getAudioPortEntries(std::vector<AudioPortEntry>& entries) const
     {
         entries.clear();
         for (size_t i = 0; i < portConfigs.size(); ++i) {
@@ -489,7 +554,7 @@ struct AudioConfigStore {
     inline std::string GetDefaultAudioPortName() const
     {
         std::vector<AudioPortEntry> entries;
-        if (!BuildAudioPortEntries(entries)) {
+        if (!getAudioPortEntries(entries)) {
             return std::string("HDMI0");
         }
         std::string defaultName = entries[0].name;
@@ -518,7 +583,7 @@ struct AudioConfigStore {
     inline bool IsHDMIOutPortPresent() const
     {
         std::vector<AudioPortEntry> entries;
-        if (!BuildAudioPortEntries(entries)) {
+        if (!getAudioPortEntries(entries)) {
             return false;
         }
         for (size_t i = 0; i < entries.size(); ++i) {
@@ -1100,7 +1165,177 @@ public:
         return ok;
     }
 
+    /**
+     * @brief Look up an audio port handle by name.
+     *
+     * Use when you only need the port handle without a connectivity check.
+     * When you also need to check connectivity, use isAudioOutputPortConnected()
+     * instead — it fills the handle AND performs the check in one call.
+     *
+     * @param audioPortName  Port name (e.g. "HDMI0", "SPDIF0", "HDMI_ARC0")
+     * @return The cached port handle on success, or -1 if not found.
+     */
+    int32_t getCachedAudioPortHandle(const std::string& audioPortName) const
+    {
+        const auto it = _audioPortHandles.find(audioPortName);
+        if (it != _audioPortHandles.end()) {
+            return it->second;
+        }
+        LOGERR("getCachedAudioPortHandle: audioPort '%s' not found in handles map",
+               audioPortName.c_str());
+        return -1;
+    }
+
+    /**
+     * @brief Look up a video port handle by name.
+     *
+     * @param videoPortName  Port name (e.g. "HDMI0", "COMPONENT0")
+     * @return The cached port handle on success, or -1 if not found.
+     */
+    int32_t getCachedVideoPortHandle(const std::string& videoPortName) const
+    {
+        const auto it = _videoPortHandles.find(videoPortName);
+        if (it != _videoPortHandles.end()) {
+            return it->second;
+        }
+        LOGERR("getCachedVideoPortHandle: videoPort '%s' not found in handles map",
+               videoPortName.c_str());
+        return -1;
+    }
+
+    /**
+     * @brief Look up a display handle by port name.
+     *
+     * @param portName  Port name (e.g. "HDMI0")
+     * @return The cached display handle on success, or -1 if not found.
+     */
+    int32_t getCachedDisplayHandle(const std::string& portName) const
+    {
+        const auto it = _displayHandles.find(portName);
+        if (it != _displayHandles.end()) {
+            return it->second;
+        }
+        LOGERR("getCachedDisplayHandle: displayPort '%s' not found in handles map",
+               portName.c_str());
+        return -1;
+    }
+
+    /**
+     * @brief Replicates AudioOutputPort::isConnected() per-type logic using COM-RPC.
+     *
+     * Fills @p portHandle from the internal _audioPortHandles cache via
+     * getCachedAudioPortHandle(), then checks per-type connectivity.
+     * Callers do NOT need to call getCachedAudioPortHandle() separately.
+     *
+     * Returns false immediately (and logs the error) if the port is not in the
+     * cache (i.e. not yet registered in OnDeviceSettingsActivated).
+     *
+     * DS_IARM reference (audioOutputPort.cpp / hdmiIn.cpp):
+     *   HDMI type      -> VideoOutputPortConfig::getPort("HDMI0").isDisplayConnected()
+     *                     COM-RPC: IDeviceSettingsVideoPort::IsVideoPortDisplayConnected
+     *   HDMI_ARC type  -> dsGetHDMIARCPortId + HdmiInput::isPortConnected
+     *                     COM-RPC: GetAudioHDMIARCPortId + IDeviceSettingsHDMIIn::GetHDMIInStatus
+     *   HEADPHONE type -> dsAudioOutIsConnected(handle)
+     *                     COM-RPC: IDeviceSettingsAudio::IsAudioOutputConnected
+     *   Others (SPDIF/SPEAKER/LR) -> always true
+     *
+     * @param audio      Audio sub-interface already acquired by the caller (not released here)
+     * @param portName   Audio port name (e.g. "HDMI0", "HDMI_ARC0", "SPDIF0")
+     * @param portHandle [OUT] Set to the cached audio port handle on success, -1 if not found.
+     * @return true if the port was found in the cache AND is connected; false otherwise.
+     *
+     * Usage:
+     * @code
+     *   int32_t audioHandle = -1;
+     *   if (isAudioOutputPortConnected(audio, audioPort, audioHandle)) {
+     *       audio->SomeApiCall(audioHandle, ...);
+     *   } else {
+     *       LOGERR("aport is not connected!");
+     *       success = false;
+     *   }
+     * @endcode
+     */
+    bool isAudioOutputPortConnected(
+        Exchange::IDeviceSettingsAudio* audio,
+        const std::string& portName,
+        int32_t& portHandle)
+    {
+        portHandle = getCachedAudioPortHandle(portName);
+        if (portHandle < 0) {
+            return false;  // getCachedAudioPortHandle already logged the error
+        }
+        if (portName.find("HDMI") != std::string::npos && portName.find("ARC") == std::string::npos) {
+            // HDMI audio port -- connected iff the video display is connected
+            // mirrors: VideoOutputPortConfig::getPort("HDMI0").isDisplayConnected()
+            const auto vpIt = _videoPortHandles.find(portName);
+            if (vpIt != _videoPortHandles.end()) {
+                auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
+                if (vp != nullptr) {
+                    bool connected = false;
+                    vp->IsVideoPortDisplayConnected(vpIt->second, connected);
+                    vp->Release();
+                    return connected;
+                }
+            }
+            return false;
+        } else if (portName.find("HDMI_ARC") != std::string::npos) {
+            // DS_IARM: dsGetHDMIARCPortId(&portId) then HdmiInput::isPortConnected(portId)
+            //          -> dsHdmiInGetStatus() -> Status.isPortConnected[portId]
+            // COM-RPC: GetAudioHDMIARCPortId gives the HDMI-In port index;
+            //          GetHDMIInStatus returns a per-port connection status iterator;
+            //          index into it at arcPortId to read isPortConnected.
+            int32_t arcPortId = -1;
+            if (audio != nullptr &&
+                audio->GetAudioHDMIARCPortId(portHandle, arcPortId) == Core::ERROR_NONE &&
+                arcPortId >= 0) {
+                auto* hdmiIn = AcquireSubInterface<Exchange::IDeviceSettingsHDMIIn>();
+                if (hdmiIn != nullptr) {
+                    Exchange::IDeviceSettingsHDMIIn::HDMIInStatus hdmiStatus{};
+                    Exchange::IDeviceSettingsHDMIIn::IHDMIInPortConnectionStatusIterator* portIt = nullptr;
+                    bool connected = false;
+                    if (hdmiIn->GetHDMIInStatus(hdmiStatus, portIt) == Core::ERROR_NONE && portIt != nullptr) {
+                        Exchange::IDeviceSettingsHDMIIn::HDMIPortConnectionStatus portStatus{};
+                        int32_t idx = 0;
+                        while (portIt->Next(portStatus)) {
+                            if (idx == arcPortId) {
+                                connected = portStatus.isPortConnected;
+                                break;
+                            }
+                            ++idx;
+                        }
+                        portIt->Release();
+                    }
+                    hdmiIn->Release();
+                    return connected;
+                }
+            }
+            return false;
+        } else if (portName.find("HEADPHONE") != std::string::npos) {
+            // DS_IARM: dsAudioOutIsConnected(handle)
+            // COM-RPC: IsAudioOutputConnected
+            bool connected = false;
+            if (audio != nullptr && audio->IsAudioOutputConnected(portHandle, connected) == Core::ERROR_NONE) {
+                return connected;
+            }
+            return false;
+        } else {
+            // SPDIF, SPEAKER, LR/IDLR -- always connected (DS_IARM else branch returns true)
+            return true;
+        }
+    }
+
 protected:
+    // -------------------------------------------------------------------------
+    // Cached port handles and config stores
+    // Populated in OnDeviceSettingsActivated(), cleared in OnDeviceSettingsDeactivated().
+    // Derived classes may read/write these directly in their overrides.
+    // -------------------------------------------------------------------------
+    std::map<std::string, int32_t> _videoPortHandles;   ///< key = port name e.g. "HDMI0"
+    std::map<std::string, int32_t> _audioPortHandles;   ///< key = port name e.g. "HDMI0"
+    std::map<std::string, int32_t> _displayHandles;     ///< key = port name
+    int32_t                        _videoDeviceHandle { -1 };
+    VideoPortConfigStore           _vpConfigStore;      ///< port types, names, resolutions
+    AudioConfigStore               _audioConfigStore;   ///< audio port types and names
     /**
      * @brief Called when the DeviceSettings plugin activates (or re-activates
      *        after a crash/restart).
