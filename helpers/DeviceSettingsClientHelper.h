@@ -240,6 +240,8 @@ using IFPDIndicatorConfigIterator    = DeviceSettingsFPD::IFPDIndicatorConfigIte
 using IFPDColorConfigIterator        = DeviceSettingsFPD::IFPDColorConfigIterator;
 using IFPDColorBindingIterator       = DeviceSettingsFPD::IFPDColorBindingIterator;
 
+#define INVALID_DS_HANDLE -1
+
 // ============================================================================
 // Internal helpers (inline)
 // ============================================================================
@@ -1183,7 +1185,7 @@ public:
         }
         LOGERR("getCachedAudioPortHandle: audioPort '%s' not found in handles map",
                audioPortName.c_str());
-        return -1;
+        return INVALID_DS_HANDLE;
     }
 
     /**
@@ -1200,7 +1202,7 @@ public:
         }
         LOGERR("getCachedVideoPortHandle: videoPort '%s' not found in handles map",
                videoPortName.c_str());
-        return -1;
+        return INVALID_DS_HANDLE;
     }
 
     /**
@@ -1217,7 +1219,7 @@ public:
         }
         LOGERR("getCachedDisplayHandle: displayPort '%s' not found in handles map",
                portName.c_str());
-        return -1;
+        return INVALID_DS_HANDLE;
     }
 
     /**
@@ -1261,7 +1263,7 @@ public:
         int32_t& portHandle)
     {
         portHandle = getCachedAudioPortHandle(portName);
-        if (portHandle < 0) {
+        if (INVALID_DS_HANDLE == portHandle) {
             return false;  // getCachedAudioPortHandle already logged the error
         }
         if (portName.find("HDMI") != std::string::npos && portName.find("ARC") == std::string::npos) {
