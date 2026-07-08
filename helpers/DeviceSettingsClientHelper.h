@@ -1262,6 +1262,7 @@ public:
         const std::string& portName,
         int32_t& portHandle)
     {
+        Core::hresult comResult = Core::ERROR_NONE;
         portHandle = getCachedAudioPortHandle(portName);
         if (INVALID_DS_HANDLE == portHandle) {
             return false;  // getCachedAudioPortHandle already logged the error
@@ -1274,7 +1275,13 @@ public:
                 auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
                 if (vp != nullptr) {
                     bool connected = false;
-                    vp->IsVideoPortDisplayConnected(vpIt->second, connected);
+                    comResult = vp->IsVideoPortDisplayConnected(vpIt->second, connected);
+                    if (comResult != Core::ERROR_NONE) {
+                        LOGERR("IsVideoPortDisplayConnected failed for '%s': %u",portName.c_str(), comResult);
+                    }
+                    else {
+                        LOGINFO("IsVideoPortDisplayConnected('%s') returned %d", portName.c_str(), connected);
+                    }
                     vp->Release();
                     return connected;
                 }
@@ -1287,39 +1294,60 @@ public:
             //          GetHDMIInStatus returns a per-port connection status iterator;
             //          index into it at arcPortId to read isPortConnected.
             int32_t arcPortId = -1;
-            if (audio != nullptr &&
-                audio->GetAudioHDMIARCPortId(portHandle, arcPortId) == Core::ERROR_NONE &&
-                arcPortId >= 0) {
+            if (audio != nullptr)
+            {
+                comResult = audio->GetAudioHDMIARCPortId(portHandle, arcPortId);
+                if (comResult != Core::ERROR_NONE && arcPortId < 0 ) {
+                    LOGERR("GetAudioHDMIARCPortId failed for '%s' ArcPortId: %d, Error: %u", portName.c_str(), arcPortId, comResult);
+                    return false;
+                }
                 auto* hdmiIn = AcquireSubInterface<Exchange::IDeviceSettingsHDMIIn>();
                 if (hdmiIn != nullptr) {
                     Exchange::IDeviceSettingsHDMIIn::HDMIInStatus hdmiStatus{};
                     Exchange::IDeviceSettingsHDMIIn::IHDMIInPortConnectionStatusIterator* portIt = nullptr;
                     bool connected = false;
-                    if (hdmiIn->GetHDMIInStatus(hdmiStatus, portIt) == Core::ERROR_NONE && portIt != nullptr) {
+                    comResult = hdmiIn->GetHDMIInStatus(hdmiStatus, portIt);
+                    if (comResult == Core::ERROR_NONE && portIt != nullptr) {
                         Exchange::IDeviceSettingsHDMIIn::HDMIPortConnectionStatus portStatus{};
                         int32_t idx = 0;
                         while (portIt->Next(portStatus)) {
                             if (idx == arcPortId) {
                                 connected = portStatus.isPortConnected;
+                                LOGINFO("GetHDMIInStatus('%s') portId=%d isPortConnected=%d", portName.c_str(), arcPortId, connected);
                                 break;
                             }
                             ++idx;
                         }
                         portIt->Release();
                     }
+                    else {
+                        LOGERR("GetHDMIInStatus failed for '%s': %u", portName.c_str(), comResult);
+                    }
                     hdmiIn->Release();
                     return connected;
                 }
+                else {
+                    LOGERR("IDeviceSettingsHDMIIn interface is null for '%s'", portName.c_str());
+                }
+            }
+            else {
+                LOGERR("Audio interface is null for '%s'", portName.c_str());
             }
             return false;
         } else if (portName.find("HEADPHONE") != std::string::npos) {
             // DS_IARM: dsAudioOutIsConnected(handle)
             // COM-RPC: IsAudioOutputConnected
             bool connected = false;
-            if (audio != nullptr && audio->IsAudioOutputConnected(portHandle, connected) == Core::ERROR_NONE) {
-                return connected;
+            if (audio == nullptr) {
+                LOGERR("Audio interface is null for '%s'", portName.c_str());
             }
-            return false;
+            else {
+                comResult = audio->IsAudioOutputConnected(portHandle, connected);
+                if (comResult != Core::ERROR_NONE) {
+                    LOGERR("IsAudioOutputConnected failed for '%s': %u", portName.c_str(), comResult);
+                }
+            }
+            return connected;
         } else {
             // SPDIF, SPEAKER, LR/IDLR -- always connected (DS_IARM else branch returns true)
             return true;
