@@ -482,6 +482,7 @@ struct VideoPortConfigStore {
     {
         std::vector<VideoPortEntry> entries;
         if (!BuildVideoPortEntries(entries)) {
+            LOGERR("No video port entries available to resolve '%s'", requestedPort.c_str());
             return false;
         }
         for (size_t i = 0; i < entries.size(); ++i) {
@@ -489,6 +490,7 @@ struct VideoPortConfigStore {
             if (EqualsIgnoreCase(e.name, requestedPort) ||
                 ((e.index == 0) && !e.typeName.empty() && EqualsIgnoreCase(e.typeName, requestedPort))) {
                 resolvedEntry = e;
+                LOGINFO("Resolved video port '%s' to type=%d index=%d", requestedPort.c_str(), e.type, e.index);
                 return true;
             }
         }
@@ -1104,9 +1106,29 @@ public:
      */
     bool LoadVideoPortConfig(VideoPortConfigStore& store)
     {
+        _videoPortHandles.clear();
         auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
         if (!iface) return false;
         const bool ok = ::WPEFramework::Plugin::LoadVideoPortConfig(iface, store);
+        if (ok) {
+            std::vector<VideoPortEntry> entries;
+            if (store.BuildVideoPortEntries(entries)) {
+                for (const VideoPortEntry& e : entries) {
+                    int32_t handle = INVALID_DS_HANDLE;
+                    Core::hresult rc = iface->GetVideoPort(e.type, e.index, handle);
+                    if (rc == Core::ERROR_NONE) {
+                        _videoPortHandles[e.name] = handle;
+                        LOGINFO("LoadVideoPortConfig: VideoPort '%s' -> handle=%d", e.name.c_str(), handle);
+                    } else {
+                        LOGERR("LoadVideoPortConfig: failed to acquire VideoPort '%s' handle, Error=%d",
+                               e.name.c_str(), rc);
+                    }
+                }
+            }
+            else {
+                LOGWARN("LoadVideoPortConfig: no video port entries found");
+            }
+        }
         iface->Release();
         return ok;
     }
@@ -1134,9 +1156,29 @@ public:
      */
     bool LoadAudioConfig(AudioConfigStore& store)
     {
+        _audioPortHandles.clear();
         auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (!iface) return false;
         const bool ok = ::WPEFramework::Plugin::LoadAudioConfig(iface, store);
+        if (ok) {
+            std::vector<AudioPortEntry> entries;
+            if (store.getAudioPortEntries(entries)) {
+                for (const AudioPortEntry& e : entries) {
+                    int32_t handle = INVALID_DS_HANDLE;
+                    Core::hresult rc = iface->GetAudioPort(e.type, e.index, handle);
+                    if (rc == Core::ERROR_NONE) {
+                        _audioPortHandles[e.name] = handle;
+                        LOGINFO("LoadAudioConfig: AudioPort '%s' -> handle=%d", e.name.c_str(), handle);
+                    } else {
+                        LOGERR("LoadAudioConfig: failed to acquire AudioPort '%s' handle, Error=%d",
+                               e.name.c_str(), rc);
+                    }
+                }
+            }
+            else {
+                LOGWARN("LoadAudioConfig: no audio port entries found");
+            }
+        }
         iface->Release();
         return ok;
     }
@@ -1147,9 +1189,25 @@ public:
      */
     bool LoadVideoDeviceConfig(VideoDeviceConfigStore& store)
     {
+        _videoDeviceHandles.clear();
         auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
         if (!iface) return false;
         const bool ok = ::WPEFramework::Plugin::LoadVideoDeviceConfig(iface, store);
+        if (ok) {
+            const size_t count = store.GetCount();
+            _videoDeviceHandles.resize(count, INVALID_DS_HANDLE);
+            for (size_t i = 0; i < count; ++i) {
+                int32_t handle = INVALID_DS_HANDLE;
+                Core::hresult rc = iface->GetVideoDeviceHandle(static_cast<int32_t>(i), handle);
+                if (rc == Core::ERROR_NONE) {
+                    _videoDeviceHandles[i] = handle;
+                    LOGINFO("LoadVideoDeviceConfig: device[%zu] handle=%d", i, handle);
+                } else {
+                    LOGERR("LoadVideoDeviceConfig: GetVideoDeviceHandle(%zu) failed, Error=%d",
+                           i, static_cast<int>(rc));
+                }
+            }
+        }
         iface->Release();
         return ok;
     }
@@ -1220,6 +1278,71 @@ public:
         LOGERR("getCachedDisplayHandle: displayPort '%s' not found in handles map",
                portName.c_str());
         return INVALID_DS_HANDLE;
+    }
+
+    /**
+     * @brief Returns the cached video device handle for the given device index.
+     *
+     * Populated by LoadVideoDeviceConfig(). Use index 0 for the primary device.
+     *
+     * @param index  Zero-based video device index (default: 0).
+     * @return The cached handle on success, or INVALID_DS_HANDLE if out of range
+     *         or not yet acquired.
+     */
+    int32_t getCachedVideoDeviceHandle(int32_t index = 0) const
+    {
+        if (index < 0 || static_cast<size_t>(index) >= _videoDeviceHandles.size()) {
+            LOGERR("getCachedVideoDeviceHandle: index %d out of range (count=%zu)",
+                   index, _videoDeviceHandles.size());
+            return INVALID_DS_HANDLE;
+        }
+        const int32_t handle = _videoDeviceHandles[static_cast<size_t>(index)];
+        if (INVALID_DS_HANDLE == handle) {
+            LOGERR("getCachedVideoDeviceHandle: handle for index %d not yet acquired", index);
+        }
+        return handle;
+    }
+
+    /**
+     * @brief Returns all cached audio port handles as (portName, handle) pairs.
+     *
+     * Use this instead of iterating _audioPortHandles directly in client plugin code.
+     * The order is unspecified (map iteration order).
+     */
+    std::vector<std::pair<std::string, int32_t>> getAudioPortHandleEntries() const
+    {
+        std::vector<std::pair<std::string, int32_t>> entries;
+        for (const auto& kv : _audioPortHandles) {
+            entries.emplace_back(kv.first, kv.second);
+        }
+        return entries;
+    }
+
+    /**
+     * @brief Returns true if a handle is cached for the given audio port name.
+     *
+     * Use this instead of _audioPortHandles.count()/find() checks in client plugin code.
+     *
+     * @param portName  Port name (e.g. "HDMI0", "HDMI_ARC0")
+     */
+    bool hasAudioPortHandle(const std::string& portName) const
+    {
+        return _audioPortHandles.count(portName) > 0;
+    }
+
+    /**
+     * @brief Returns all cached video port handles as (portName, handle) pairs.
+     *
+     * Use this instead of iterating _videoPortHandles directly in client plugin code.
+     * The order is unspecified (map iteration order).
+     */
+    std::vector<std::pair<std::string, int32_t>> getVideoPortHandleEntries() const
+    {
+        std::vector<std::pair<std::string, int32_t>> entries;
+        for (const auto& kv : _videoPortHandles) {
+            entries.emplace_back(kv.first, kv.second);
+        }
+        return entries;
     }
 
     /**
@@ -1367,9 +1490,10 @@ protected:
     std::map<std::string, int32_t> _videoPortHandles;   ///< key = port name e.g. "HDMI0"
     std::map<std::string, int32_t> _audioPortHandles;   ///< key = port name e.g. "HDMI0"
     std::map<std::string, int32_t> _displayHandles;     ///< key = port name
-    int32_t                        _videoDeviceHandle { -1 };
+    std::vector<int32_t>           _videoDeviceHandles; ///< index = device index (0-based)
     VideoPortConfigStore           _vpConfigStore;      ///< port types, names, resolutions
     AudioConfigStore               _audioConfigStore;   ///< audio port types and names
+    VideoDeviceConfigStore         _vdConfigStore;      ///< video device capabilities
     /**
      * @brief Called when the DeviceSettings plugin activates (or re-activates
      *        after a crash/restart).
@@ -1411,13 +1535,19 @@ private:
     void Operational(const bool upAndRunning) override final
     {
         if (upAndRunning) {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings activated — "
-                    "re-registering event notifications", _callsign.c_str());
+            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings activated — re-registering event notifications", _callsign.c_str());
+            _videoPortHandles.clear();
+            _audioPortHandles.clear();
+            _displayHandles.clear();
+            _videoDeviceHandles.clear();
             OnDeviceSettingsActivated();
         } else {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings deactivated — "
-                    "cleaning up stale state", _callsign.c_str());
+            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings deactivated — cleaning up stale state", _callsign.c_str());
             OnDeviceSettingsDeactivated();
+            _videoPortHandles.clear();
+            _audioPortHandles.clear();
+            _displayHandles.clear();
+            _videoDeviceHandles.clear();
         }
     }
 
