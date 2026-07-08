@@ -1346,9 +1346,13 @@ public:
                 if (comResult != Core::ERROR_NONE) {
                     LOGERR("IsAudioOutputConnected failed for '%s': %u", portName.c_str(), comResult);
                 }
+                else {
+                    LOGINFO("IsAudioOutputConnected('%s') returned %d", portName.c_str(), connected);
+                }
             }
             return connected;
         } else {
+            LOGINFO("'%s' is not HDMI, HDMI_ARC, or HEADPHONE — assuming connected", portName.c_str());
             // SPDIF, SPEAKER, LR/IDLR -- always connected (DS_IARM else branch returns true)
             return true;
         }
