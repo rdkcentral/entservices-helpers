@@ -396,6 +396,7 @@ struct VideoPortConfigStore {
         for (size_t i = 0; i < portConfigs.size(); ++i) {
             const VideoPortPortConfig& pc = portConfigs[i];
             std::string typeName;
+            VideoPortType portType = pc.videoPortType;
             for (size_t j = 0; j < typeConfigs.size(); ++j) {
                 if (typeConfigs[j].typeId == pc.videoPortType) {
                     typeName = typeConfigs[j].name;
@@ -403,10 +404,10 @@ struct VideoPortConfigStore {
                 }
             }
             VideoPortEntry e;
-            e.type     = pc.videoPortType;
+            e.type     = portType;
             e.index    = pc.videoPortIndex;
             e.typeName = typeName;
-            e.name     = getVideoPortName(pc.videoPortType, pc.videoPortIndex);
+            e.name     = getVideoPortName(portType, pc.videoPortIndex);
             entries.push_back(e);
         }
         return !entries.empty();
