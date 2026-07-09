@@ -268,7 +268,6 @@ inline std::string getVideoPortName(VideoPortType portType, int32_t index)
     case VideoPortType::DS_VIDEO_PORT_TYPE_HDMI:        return std::string("HDMI")       + std::to_string(index);
     case VideoPortType::DS_VIDEO_PORT_TYPE_HDMI_INPUT:  return std::string("HDMIInput")  + std::to_string(index);
     case VideoPortType::DS_VIDEO_PORT_TYPE_INTERNAL:    return std::string("Internal")   + std::to_string(index);
-    case VideoPortType::DS_VIDEO_PORT_TYPE_SCART:       return std::string("SCART")      + std::to_string(index);
     default:                                           return std::string("VIDEO")      + std::to_string(index);
     }
 }
