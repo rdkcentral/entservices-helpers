@@ -256,24 +256,33 @@ inline bool EqualsIgnoreCase(const std::string& lhs, const std::string& rhs)
                       });
 }
 
-inline std::string BuildVideoPortName(const std::string& typeName, int32_t index)
+inline std::string getVideoPortName(VideoPortType portType, int32_t index)
 {
-    if (typeName.empty()) {
-        return std::string("VIDEO") + std::to_string(index);
+    switch (portType) {
+    case VideoPortType::DS_VIDEO_PORT_TYPE_RF:          return std::string("RF")          + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_BB:          return std::string("Baseband")    + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_SVIDEO:      return std::string("SVideo")     + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_1394:        return std::string("1394")       + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_DVI:         return std::string("DVI")        + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_COMPONENT:   return std::string("Component")  + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_HDMI:        return std::string("HDMI")       + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_HDMI_INPUT:  return std::string("HDMIInput")  + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_INTERNAL:    return std::string("Internal")   + std::to_string(index);
+    case VideoPortType::DS_VIDEO_PORT_TYPE_SCART:       return std::string("SCART")      + std::to_string(index);
+    default:                                           return std::string("VIDEO")      + std::to_string(index);
     }
-    return typeName + std::to_string(index);
 }
 
-inline std::string BuildAudioPortName(AudioPortType portType, int32_t index)
+inline std::string getAudioPortName(AudioPortType portType, int32_t index)
 {
     switch (portType) {
     case AudioPortType::AUDIO_PORT_TYPE_HDMI:      return std::string("HDMI")      + std::to_string(index);
     case AudioPortType::AUDIO_PORT_TYPE_SPDIF:     return std::string("SPDIF")     + std::to_string(index);
-    case AudioPortType::AUDIO_PORT_TYPE_LR:        return std::string("LR")        + std::to_string(index);
+    case AudioPortType::AUDIO_PORT_TYPE_LR:        return std::string("IDLR")        + std::to_string(index);
     case AudioPortType::AUDIO_PORT_TYPE_SPEAKER:   return std::string("SPEAKER")   + std::to_string(index);
-    case AudioPortType::AUDIO_PORT_TYPE_HDMIARC:   return std::string("HDMIARC")   + std::to_string(index);
+    case AudioPortType::AUDIO_PORT_TYPE_HDMIARC:   return std::string("HDMI_ARC")   + std::to_string(index);
     case AudioPortType::AUDIO_PORT_TYPE_HEADPHONE: return std::string("HEADPHONE") + std::to_string(index);
-    default:                                        return std::string("AUDIO")     + std::to_string(index);
+    default:                                       return std::string("AUDIO")     + std::to_string(index);
     }
 }
 
@@ -381,7 +390,7 @@ struct VideoPortConfigStore {
         return portConfigs.empty() && typeConfigs.empty();
     }
 
-    inline bool BuildVideoPortEntries(std::vector<VideoPortEntry>& entries) const
+    inline bool getVideoPortEntries(std::vector<VideoPortEntry>& entries) const
     {
         entries.clear();
         for (size_t i = 0; i < portConfigs.size(); ++i) {
@@ -397,7 +406,7 @@ struct VideoPortConfigStore {
             e.type     = pc.videoPortType;
             e.index    = pc.videoPortIndex;
             e.typeName = typeName;
-            e.name     = BuildVideoPortName(typeName, pc.videoPortIndex);
+            e.name     = getVideoPortName(pc.videoPortType, pc.videoPortIndex);
             entries.push_back(e);
         }
         return !entries.empty();
@@ -406,7 +415,7 @@ struct VideoPortConfigStore {
     inline std::string GetDefaultVideoPortName() const
     {
         std::vector<VideoPortEntry> entries;
-        if (!BuildVideoPortEntries(entries)) {
+        if (!getVideoPortEntries(entries)) {
             return std::string("HDMI0");
         }
         std::string defaultName = entries[0].name;
@@ -437,7 +446,7 @@ struct VideoPortConfigStore {
                     break;
                 }
             }
-            if (EqualsIgnoreCase(BuildVideoPortName(typeName, pc.videoPortIndex), portName)) {
+            if (EqualsIgnoreCase(getVideoPortName(pc.videoPortType, pc.videoPortIndex), portName)) {
                 return pc.defaultResolution;
             }
         }
@@ -457,7 +466,7 @@ struct VideoPortConfigStore {
                     break;
                 }
             }
-            if (EqualsIgnoreCase(BuildVideoPortName(typeName, pc.videoPortIndex), portName)) {
+            if (EqualsIgnoreCase(getVideoPortName(pc.videoPortType, pc.videoPortIndex), portName)) {
                 connectedAudioType  = pc.connectedAudioPortType;
                 connectedAudioIndex = pc.connectedAudioPortIndex;
                 return true;
@@ -481,7 +490,7 @@ struct VideoPortConfigStore {
                                VideoPortEntry& resolvedEntry) const
     {
         std::vector<VideoPortEntry> entries;
-        if (!BuildVideoPortEntries(entries)) {
+        if (!getVideoPortEntries(entries)) {
             LOGERR("No video port entries available to resolve '%s'", requestedPort.c_str());
             return false;
         }
@@ -549,7 +558,7 @@ struct AudioConfigStore {
             AudioPortEntry e;
             e.type  = pc.audioPortType;
             e.index = pc.audioPortIndex;
-            e.name  = BuildAudioPortName(pc.audioPortType, pc.audioPortIndex);
+            e.name  = getAudioPortName(pc.audioPortType, pc.audioPortIndex);
             entries.push_back(e);
         }
         return !entries.empty();
@@ -1112,7 +1121,7 @@ public:
         const bool ok = ::WPEFramework::Plugin::LoadVideoPortConfig(iface, store);
         if (ok) {
             std::vector<VideoPortEntry> entries;
-            if (store.BuildVideoPortEntries(entries)) {
+            if (store.getVideoPortEntries(entries)) {
                 for (const VideoPortEntry& e : entries) {
                     int32_t handle = INVALID_DS_HANDLE;
                     Core::hresult rc = iface->GetVideoPort(e.type, e.index, handle);
