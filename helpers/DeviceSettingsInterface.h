@@ -34,7 +34,7 @@
  *   - VideoDeviceConfigStore/ LoadVideoDeviceConfig()
  *   - FrontPanelConfigStore / LoadFrontPanelConfig()
  *
- * The DeviceSettingsClientHelper class additionally exposes single-argument
+ * The DSHelper class additionally exposes single-argument
  * convenience wrappers (e.g. LoadVideoPortConfig(store)) that internally call
  * AcquireSubInterface<T>() so callers never need to manage raw interface pointers
  * for configuration loading.
@@ -54,7 +54,7 @@
  *
  * ## Activation lifecycle
  *
- *   1. client calls DeviceSettingsClientHelper::Open(service)  in its Configure(IShell*)
+ *   1. client calls DSHelper::Open(service)  in its Configure(IShell*)
  *   2. Thunder connects asynchronously to "org.rdk.DeviceSettings" (default callsign)
  *   3. DeviceSettings activates → Operational(true) →
  *        OnDeviceSettingsActivated()  ← override to (re-)register events
@@ -95,7 +95,7 @@
  * class FrameRateImplementation
  *     : public Exchange::IFrameRate
  *     , public Exchange::IConfiguration
- *     , public DeviceSettingsClientHelper   // root IDeviceSettings COM-RPC link
+ *     , public DSHelper   // root IDeviceSettings COM-RPC link
  *     // NOTE: do NOT inherit INotification directly — use an inner delegate class
  * {
  *     // Inner notification delegate — name conveys the DS sub-interface it handles
@@ -126,14 +126,14 @@
  *     {}
  *
  *     uint32_t Configure(PluginHost::IShell* service) override {
- *         DeviceSettingsClientHelper::Open(service);
+ *         DSHelper::Open(service);
  *         return Core::ERROR_NONE;
  *     }
  *
  *     ~FrameRateImplementation() {
  *         auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
  *         if (vd) { vd->Unregister(&_notification); vd->Release(); }
- *         DeviceSettingsClientHelper::Close();
+ *         DSHelper::Close();
  *     }
  *
  *     // Called when DeviceSettings (re-)activates
@@ -720,7 +720,7 @@ struct FrontPanelConfigStore {
 // ============================================================================
 // Standalone load functions — one per component interface (inline)
 // These accept a raw sub-interface pointer for callers that already hold one.
-// Prefer the DeviceSettingsClientHelper member wrappers below when possible.
+// Prefer the DSHelper member wrappers below when possible.
 // ============================================================================
 
 inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, VideoPortConfigStore& store)
@@ -980,7 +980,7 @@ inline bool LoadFrontPanelConfig(Exchange::IDeviceSettingsFPD* iface, FrontPanel
 }
 
 // ============================================================================
-// DeviceSettingsClientHelper
+// DSHelper
 // ============================================================================
 
 /**
@@ -990,7 +990,7 @@ inline bool LoadFrontPanelConfig(Exchange::IDeviceSettingsFPD* iface, FrontPanel
  * Always opens a COM-RPC link using the ROOT IDeviceSettings interface
  * (ID_DEVICESETTINGS).  Sub-interfaces are obtained via AcquireSubInterface<T>().
  */
-class DeviceSettingsClientHelper
+class DSHelper
     : public RPC::PluginSmartInterfaceType<Exchange::IDeviceSettings>
 {
     using BaseClass = RPC::PluginSmartInterfaceType<Exchange::IDeviceSettings>;
@@ -1000,17 +1000,17 @@ public:
     static constexpr const char* kDefaultCallsign = "org.rdk.DeviceSettings";
 
 public:
-    DeviceSettingsClientHelper()
+    DSHelper()
         : _service(nullptr)
         , _callsign(kDefaultCallsign)
     {
     }
 
-    virtual ~DeviceSettingsClientHelper() { Close(); }
-    DeviceSettingsClientHelper(const DeviceSettingsClientHelper&)            = delete;
-    DeviceSettingsClientHelper& operator=(const DeviceSettingsClientHelper&) = delete;
-    DeviceSettingsClientHelper(DeviceSettingsClientHelper&&)                 = delete;
-    DeviceSettingsClientHelper& operator=(DeviceSettingsClientHelper&&)      = delete;
+    virtual ~DSHelper() { Close(); }
+    DSHelper(const DSHelper&)            = delete;
+    DSHelper& operator=(const DSHelper&) = delete;
+    DSHelper(DSHelper&&)                 = delete;
+    DSHelper& operator=(DSHelper&&)      = delete;
 
 public:
     /**
@@ -1029,11 +1029,11 @@ public:
     uint32_t Open(PluginHost::IShell* service, const string& callsign = kDefaultCallsign)
     {
         if (service == nullptr) {
-            LOGERR("DeviceSettingsClientHelper::Open() failed: service is nullptr");
+            LOGERR("DSHelper::Open() failed: service is nullptr");
             return Core::ERROR_BAD_REQUEST;
         }
         if (_service != nullptr) {
-            LOGERR("DeviceSettingsClientHelper::Open(%s) called while already open", callsign.c_str());
+            LOGERR("DSHelper::Open(%s) called while already open", callsign.c_str());
             return Core::ERROR_GENERAL;
         }
         _service  = service;
@@ -1042,13 +1042,13 @@ public:
 
         const uint32_t result = BaseClass::Open(_service, callsign);
         if (result != Core::ERROR_NONE) {
-            LOGERR("DeviceSettingsClientHelper::Open(%s) failed: %u",
+            LOGERR("DSHelper::Open(%s) failed: %u",
                    callsign.c_str(), result);
             _service->Release();
             _service = nullptr;
             _callsign = kDefaultCallsign;
         } else {
-            LOGINFO("DeviceSettingsClientHelper::Open(%s) succeeded", callsign.c_str());
+            LOGINFO("DSHelper::Open(%s) succeeded", callsign.c_str());
         }
         return result;
     }
@@ -1062,7 +1062,7 @@ public:
     void Close()
     {
         if (_service != nullptr) {
-            LOGINFO("DeviceSettingsClientHelper::Close(%s)", _callsign.c_str());
+            LOGINFO("DSHelper::Close(%s)", _callsign.c_str());
             BaseClass::Close();
             _service->Release();
             _service = nullptr;
@@ -1094,14 +1094,14 @@ public:
     {
         Exchange::IDeviceSettings* root = BaseClass::Interface();
         if (root == nullptr) {
-            LOGERR("DeviceSettingsClientHelper[%s]: IDeviceSettings root not available",
+            LOGERR("DSHelper[%s]: IDeviceSettings root not available",
                    _callsign.c_str());
             return nullptr;
         }
         SUBINTERFACE* sub = root->QueryInterface<SUBINTERFACE>();
         root->Release();   // root reference balanced — sub has its own AddRef from QI
         if (sub == nullptr) {
-            LOGERR("DeviceSettingsClientHelper[%s]: QueryInterface<0x%08x> returned nullptr",
+            LOGERR("DSHelper[%s]: QueryInterface<0x%08x> returned nullptr",
                    _callsign.c_str(), static_cast<uint32_t>(SUBINTERFACE::ID));
         }
         return sub;
@@ -2029,7 +2029,7 @@ private:
     void Operational(const bool upAndRunning) override final
     {
         if (upAndRunning) {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings activated — invalidating stale config", _callsign.c_str());
+            LOGINFO("DSHelper[%s]: DeviceSettings activated — invalidating stale config", _callsign.c_str());
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
                 _configLoaded.store(false, std::memory_order_release);
@@ -2042,7 +2042,7 @@ private:
             // Client plugins must NOT call LoadAllConfigs() — it is an internal helper only.
             OnDeviceSettingsActivated();
         } else {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings deactivated — clearing config and handles", _callsign.c_str());
+            LOGINFO("DSHelper[%s]: DeviceSettings deactivated — clearing config and handles", _callsign.c_str());
             OnDeviceSettingsDeactivated();
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
@@ -2096,12 +2096,12 @@ private:
         std::lock_guard<std::mutex> initLock(_initMutex);
         // Double-check: a previous waiter may have already completed the load
         if (!_configLoaded.load(std::memory_order_relaxed)) {
-            LOGINFO("DeviceSettingsClientHelper[%s]: config not yet loaded — triggering LoadAllConfigs()",
+            LOGINFO("DSHelper[%s]: config not yet loaded — triggering LoadAllConfigs()",
                     _callsign.c_str());
-            const bool ok = const_cast<DeviceSettingsClientHelper*>(this)->LoadAllConfigs();
+            const bool ok = const_cast<DSHelper*>(this)->LoadAllConfigs();
             if (!ok) {
                 // _configLoaded remains false — next accessor call will retry
-                LOGERR("DeviceSettingsClientHelper[%s]: LoadAllConfigs() failed — config remains unloaded",
+                LOGERR("DSHelper[%s]: LoadAllConfigs() failed — config remains unloaded",
                        _callsign.c_str());
             }
         }
