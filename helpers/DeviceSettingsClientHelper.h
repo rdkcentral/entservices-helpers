@@ -1987,14 +1987,6 @@ public:
     }
 
 protected:
-    // -------------------------------------------------------------------------
-    // Cached port handles — available to derived classes in overrides.
-    // Config data is accessed through the public accessor methods above.
-    // -------------------------------------------------------------------------
-    std::map<std::string, int32_t> _videoPortHandles;   ///< key = port name e.g. "HDMI0"
-    std::map<std::string, int32_t> _audioPortHandles;   ///< key = port name e.g. "HDMI0"
-    std::map<std::string, int32_t> _displayHandles;     ///< key = port name
-    std::vector<int32_t>           _videoDeviceHandles; ///< index = device index (0-based)
     /**
      * @brief Called when the DeviceSettings plugin activates (or re-activates
      *        after a crash/restart).
@@ -2071,6 +2063,11 @@ private:
     AudioConfigStore        _audioConfigStore;   ///< audio type and port configs
     VideoDeviceConfigStore  _vdConfigStore;      ///< video device capabilities
     FrontPanelConfigStore   _fpConfigStore;      ///< FPD colors, indicators, text displays, bindings
+
+    std::map<std::string, int32_t> _videoPortHandles;   ///< key = port name e.g. "HDMI0"
+    std::map<std::string, int32_t> _audioPortHandles;   ///< key = port name e.g. "HDMI0"
+    std::map<std::string, int32_t> _displayHandles;     ///< key = port name
+    std::vector<int32_t>           _videoDeviceHandles; ///< index = device index (0-based)
 
     mutable std::mutex _configMutex;            ///< guards stores, handle maps and _configLoaded
     mutable std::mutex _initMutex;              ///< serialises concurrent LoadAllConfigs() calls
