@@ -1452,7 +1452,7 @@ private:
         for (const auto& src : rawCfg.videoConfigs) {
             VideoDeviceConfigInfo dst{};
             dst.numSupportedDFCs = src.numSupportedDFCs; dst.supportedDFCsMask = src.supportedDFCsMask;
-            dst.defaultDFC = src.defaultDFC;
+            dst.defaultDFC = static_cast<VideoZoom>(src.defaultDFC);
             newVd.deviceConfigs.push_back(std::move(dst));
         }
         for (const auto& src : rawCfg.colors) {
