@@ -169,7 +169,10 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
+#include <chrono>
+#include <mutex>
 #include <map>
 #include <string>
 #include <vector>
@@ -1143,11 +1146,31 @@ public:
     }
 
     /**
-     * @brief Convenience: acquire IDeviceSettingsVideoPort and load the
-     *        supported resolutions for a single @p portType into @p out.
+     * @brief Load the supported resolutions for a single VideoPort type.
      *
-     * Useful for re-querying resolutions for one port type after the full
-     * config has already been loaded, e.g. after a display hotplug event.
+     * This is the ONLY config loader that must be called separately — it is
+     * NOT included in LoadAllConfigs() because the resolution set differs per
+     * videoPortType and must be queried once per type by the caller.
+     *
+     * Typical usage: call once per type in OnDeviceSettingsActivated() and persist via
+     * StoreVideoPortResolutionsForType():
+     * @code
+     *   void OnDeviceSettingsActivated() override {
+     *       // Config is loaded lazily — no explicit load call needed.
+     *       std::vector<VideoPortEntry> entries;
+     *       if (getVideoPortEntries(entries)) {
+     *           for (const auto& e : entries) {
+     *               std::vector<VideoPortResolution> resolutions;
+     *               if (LoadVideoPortResolutionConfig(e.type, resolutions))
+     *                   storeVideoPortResolutionsForType(e.type, std::move(resolutions));
+     *           }
+     *       }
+     *   }
+     * @endcode
+     *
+     * @param portType  VideoPort enum value identifying the port type to query.
+     * @param out       Filled with the supported VideoPortResolution entries.
+     * @return true on success; false on failure or empty result.
      */
     bool LoadVideoPortResolutionConfig(VideoPortType portType,
                                         std::vector<VideoPortResolution>& out)
@@ -1235,6 +1258,452 @@ public:
     }
 
     /**
+     * @brief Reload only audio configuration and re-acquire audio port handles.
+     *
+     * Uses the consolidated GetDeviceSettingConfigs() call (same as LoadAllConfigs)
+     * but extracts and commits only the audio-related fields.  Video, FPD and
+     * video-device stores are left untouched.  _configLoaded is NOT cleared so
+     * all other accessors continue to serve valid data during the reload.
+     *
+     * The commit is skipped entirely if the returned audio config or the
+     * re-acquired handles are empty, preserving the existing cached data.
+     *
+     * @return true on success; false if the root interface is unavailable,
+     *         GetDeviceSettingConfigs() fails, or the result is empty.
+     */
+    bool ReloadAudioConfigs()
+    {
+        // Phase 1: COM-RPC — retrieve consolidated config (no lock held)
+        Exchange::IDeviceSettings* root = BaseClass::Interface();
+        if (root == nullptr) {
+            LOGERR("ReloadAudioConfigs: IDeviceSettings root not available");
+            return false;
+        }
+
+        Exchange::IDeviceSettings::DeviceSettingConfigs rawCfg;
+        const Core::hresult rc = root->GetDeviceSettingConfigs(rawCfg);
+        root->Release();
+        if (rc != Core::ERROR_NONE) {
+            LOGERR("ReloadAudioConfigs: GetDeviceSettingConfigs failed: %u", rc);
+            return false;
+        }
+
+        // Phase 2: build audio store from raw config (no COM-RPC, no lock)
+        AudioConfigStore newAudio;
+        for (const auto& src : rawCfg.audioTypes) {
+            AudioTypeConfigInfo dst{};
+            dst.typeId = src.typeId; dst.name = src.name;
+            dst.supportedCompressionMask = src.supportedCompressionMask;
+            dst.supportedEncodingMask    = src.supportedEncodingMask;
+            dst.supportedStereoModeMask  = src.supportedStereoModeMask;
+            newAudio.typeConfigs.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.audioPorts) {
+            AudioPortConfigInfo dst{};
+            dst.audioPortType  = static_cast<AudioPortType>(src.audioPortType);
+            dst.audioPortIndex = src.audioPortIndex;
+            newAudio.portConfigs.push_back(std::move(dst));
+        }
+
+        if (newAudio.IsEmpty()) {
+            LOGERR("ReloadAudioConfigs: received empty audio config — not overwriting existing stores");
+            return false;
+        }
+
+        // Phase 3: re-acquire audio port handles (no lock held)
+        std::map<std::string, int32_t> newAudioHandles;
+        {
+            auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+            if (audio != nullptr) {
+                std::vector<AudioPortEntry> entries;
+                if (newAudio.getAudioPortEntries(entries)) {
+                    for (const AudioPortEntry& e : entries) {
+                        int32_t handle = INVALID_DS_HANDLE;
+                        Core::hresult hrc = audio->GetAudioPort(e.type, e.index, handle);
+                        if (hrc == Core::ERROR_NONE) {
+                            newAudioHandles[e.name] = handle;
+                            LOGINFO("ReloadAudioConfigs: AudioPort '%s' -> handle=%d", e.name.c_str(), handle);
+                        } else {
+                            LOGERR("ReloadAudioConfigs: GetAudioPort '%s' failed: %u", e.name.c_str(), hrc);
+                        }
+                    }
+                }
+                audio->Release();
+            }
+        }
+
+        if (newAudioHandles.empty()) {
+            LOGERR("ReloadAudioConfigs: no audio port handles acquired — not overwriting existing handles");
+            return false;
+        }
+
+        // Phase 4: atomic commit — replace only audio stores, leave all others intact
+        {
+            std::lock_guard<std::mutex> lock(_configMutex);
+            _audioConfigStore = std::move(newAudio);
+            _audioPortHandles = std::move(newAudioHandles);
+            // _configLoaded intentionally NOT modified — video/FPD/VD data remains valid
+        }
+
+        LOGINFO("ReloadAudioConfigs: completed — audioTypes=%zu audioPorts=%zu handles=%zu",
+                _audioConfigStore.typeConfigs.size(),
+                _audioConfigStore.portConfigs.size(),
+                _audioPortHandles.size());
+        return true;
+    }
+
+private:
+    /**
+     * @brief Load ALL static DeviceSettings configuration in a single COM-RPC call.
+     *
+     * Internal — called only by _ensureConfigLoaded() on the first accessor call
+     * after activation.  Client plugins must NOT call this directly.
+     *
+     * Preferred over calling LoadVideoPortConfig(), LoadAudioConfig(),
+     * LoadVideoDeviceConfig() and LoadFrontPanelConfig() individually.
+     * Internally calls IDeviceSettings::GetDeviceSettingConfigs() for a single
+     * round-trip, then acquires port/device handles via sub-interfaces.
+     * Results are stored in private config stores and exposed through the
+     * public accessor methods (GetVideoPortEntries, GetDefaultAudioPortName, etc.).
+     *
+     * @note LoadVideoPortResolutionConfig() must still be called separately
+     *       for each videoPortType — resolution tables differ per type and are
+     *       not included in the consolidated call.  Use
+     *       StoreVideoPortResolutionsForType() to persist the result.
+     *
+     * @return true on success; false if the root interface is unavailable or
+     *         GetDeviceSettingConfigs() fails.
+     */
+    bool LoadAllConfigs()
+    {
+        const auto tTotal = std::chrono::steady_clock::now();
+
+        // ── Phase 1: COM-RPC — retrieve all static config (no lock held) ────────
+        Exchange::IDeviceSettings* root = BaseClass::Interface();
+        if (root == nullptr) {
+            LOGERR("LoadAllConfigs: IDeviceSettings root not available");
+            return false;
+        }
+
+        Exchange::IDeviceSettings::DeviceSettingConfigs rawCfg;
+        const auto tGetConfig = std::chrono::steady_clock::now();
+        const Core::hresult rc = root->GetDeviceSettingConfigs(rawCfg);
+        root->Release();
+        const int64_t msGetConfig = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tGetConfig).count();
+        if (rc != Core::ERROR_NONE) {
+            LOGERR("LoadAllConfigs: GetDeviceSettingConfigs failed: %u", rc);
+            return false;
+        }
+
+        // ── Phase 2: Build stores from raw config (no COM-RPC, no lock) ─────────
+        const auto tStores = std::chrono::steady_clock::now();
+        VideoPortConfigStore   newVp;
+        AudioConfigStore       newAudio;
+        VideoDeviceConfigStore newVd;
+        FrontPanelConfigStore  newFp;
+
+        for (const auto& src : rawCfg.videoPortTypes) {
+            VideoPortTypeConfig dst{};
+            dst.typeId = static_cast<VideoPortType>(src.typeId); dst.name = src.name;
+            dst.dtcpSupported = src.dtcpSupported; dst.hdcpSupported = src.hdcpSupported;
+            dst.restrictedResolution = src.restrictedResolution;
+            dst.supportedResolutionNames = src.supportedResolutionNames;
+            newVp.typeConfigs.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.videoPorts) {
+            VideoPortPortConfig dst{};
+            dst.videoPortType = static_cast<VideoPortType>(src.videoPortType);
+            dst.videoPortIndex = src.videoPortIndex;
+            dst.connectedAudioPortType = src.connectedAudioPortType;
+            dst.connectedAudioPortIndex = src.connectedAudioPortIndex;
+            dst.defaultResolution = src.defaultResolution;
+            newVp.portConfigs.push_back(std::move(dst));
+        }
+        if (!newVp.typeConfigs.empty() && !rawCfg.videoPortResolutions.empty()) {
+            const VideoPortType primaryType = newVp.typeConfigs[0].typeId;
+            auto& typeRes = newVp.resolutionsByType[primaryType];
+            for (const auto& src : rawCfg.videoPortResolutions) {
+                VideoPortResolution res{};
+                res.name = src.name;
+                res.pixelResolution  = static_cast<DeviceSettingsVideoPort::VideoResolution>(src.pixelResolution);
+                res.aspectRatio      = static_cast<DeviceSettingsVideoPort::VideoAspectRatio>(src.aspectRatio);
+                res.stereoScopicMode = static_cast<DeviceSettingsVideoPort::VideoStereoScopicMode>(src.stereoScopicMode);
+                res.frameRate        = static_cast<DeviceSettingsVideoPort::VideoFrameRate>(src.frameRate);
+                res.interlaced       = src.interlaced;
+                typeRes.push_back(res); newVp.resolutions.push_back(res);
+            }
+        }
+        for (const auto& src : rawCfg.audioTypes) {
+            AudioTypeConfigInfo dst{};
+            dst.typeId = src.typeId; dst.name = src.name;
+            dst.supportedCompressionMask = src.supportedCompressionMask;
+            dst.supportedEncodingMask    = src.supportedEncodingMask;
+            dst.supportedStereoModeMask  = src.supportedStereoModeMask;
+            newAudio.typeConfigs.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.audioPorts) {
+            AudioPortConfigInfo dst{};
+            dst.audioPortType  = static_cast<AudioPortType>(src.audioPortType);
+            dst.audioPortIndex = src.audioPortIndex;
+            newAudio.portConfigs.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.videoConfigs) {
+            VideoDeviceConfigInfo dst{};
+            dst.numSupportedDFCs = src.numSupportedDFCs; dst.supportedDFCsMask = src.supportedDFCsMask;
+            dst.defaultDFC = src.defaultDFC;
+            newVd.deviceConfigs.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.colors) {
+            FPDColorConfig dst{}; dst.id = src.id; dst.color = src.color;
+            newFp.colors.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.indicators) {
+            FPDIndicatorConfig dst{};
+            dst.id = src.id; dst.maxBrightness = src.maxBrightness; dst.maxCycleRate = src.maxCycleRate;
+            dst.minBrightness = src.minBrightness; dst.levels = src.levels; dst.colorMode = src.colorMode;
+            newFp.indicators.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.textDisplays) {
+            FPDTextDisplayConfig dst{};
+            dst.id = src.id; dst.name = src.name; dst.maxBrightness = src.maxBrightness;
+            dst.maxCycleRate = src.maxCycleRate; dst.supportedCharacters = src.supportedCharacters;
+            dst.columns = src.columns; dst.rows = src.rows;
+            dst.maxHorizontalIterations = src.maxHorizontalIterations;
+            dst.maxVerticalIterations = src.maxVerticalIterations;
+            dst.levels = src.levels; dst.colorMode = src.colorMode;
+            newFp.textDisplays.push_back(std::move(dst));
+        }
+        for (const auto& src : rawCfg.colorBindings) {
+            FPDColorBinding dst{};
+            dst.targetType = src.targetType; dst.targetId = src.targetId; dst.colorId = src.colorId;
+            newFp.colorBindings.push_back(std::move(dst));
+        }
+        const int64_t msStores = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tStores).count();
+
+        // ── Phase 3: Acquire handles via COM-RPC (no lock held) ──────────────────
+        const auto tHandles = std::chrono::steady_clock::now();
+        std::map<std::string, int32_t> newVpHandles;
+        std::map<std::string, int32_t> newAudioHandles;
+        std::vector<int32_t>           newVdHandles;
+        {
+            auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
+            if (vp != nullptr) {
+                std::vector<VideoPortEntry> entries;
+                if (newVp.getVideoPortEntries(entries)) {
+                    for (const VideoPortEntry& e : entries) {
+                        int32_t handle = INVALID_DS_HANDLE;
+                        Core::hresult hrc = vp->GetVideoPort(e.type, e.index, handle);
+                        if (hrc == Core::ERROR_NONE) { newVpHandles[e.name] = handle; LOGINFO("LoadAllConfigs: VideoPort '%s' -> handle=%d", e.name.c_str(), handle); }
+                        else { LOGERR("LoadAllConfigs: GetVideoPort '%s' failed: %u", e.name.c_str(), hrc); }
+                    }
+                }
+                vp->Release();
+            }
+        }
+        {
+            auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+            if (audio != nullptr) {
+                std::vector<AudioPortEntry> entries;
+                if (newAudio.getAudioPortEntries(entries)) {
+                    for (const AudioPortEntry& e : entries) {
+                        int32_t handle = INVALID_DS_HANDLE;
+                        Core::hresult hrc = audio->GetAudioPort(e.type, e.index, handle);
+                        if (hrc == Core::ERROR_NONE) { newAudioHandles[e.name] = handle; LOGINFO("LoadAllConfigs: AudioPort '%s' -> handle=%d", e.name.c_str(), handle); }
+                        else { LOGERR("LoadAllConfigs: GetAudioPort '%s' failed: %u", e.name.c_str(), hrc); }
+                    }
+                }
+                audio->Release();
+            }
+        }
+        {
+            auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
+            if (vd != nullptr) {
+                const size_t count = newVd.GetCount();
+                newVdHandles.resize(count, INVALID_DS_HANDLE);
+                for (size_t i = 0; i < count; ++i) {
+                    int32_t handle = INVALID_DS_HANDLE;
+                    Core::hresult hrc = vd->GetVideoDeviceHandle(static_cast<int32_t>(i), handle);
+                    if (hrc == Core::ERROR_NONE) { newVdHandles[i] = handle; LOGINFO("LoadAllConfigs: device[%zu] handle=%d", i, handle); }
+                    else { LOGERR("LoadAllConfigs: GetVideoDeviceHandle(%zu) failed: %u", i, hrc); }
+                }
+                vd->Release();
+            }
+        }
+
+        // ── Phase 4: Atomic commit under lock ────────────────────────────────────
+        {
+            std::lock_guard<std::mutex> lock(_configMutex);
+            _vpConfigStore      = std::move(newVp);
+            _audioConfigStore   = std::move(newAudio);
+            _vdConfigStore      = std::move(newVd);
+            _fpConfigStore      = std::move(newFp);
+            _videoPortHandles   = std::move(newVpHandles);
+            _audioPortHandles   = std::move(newAudioHandles);
+            _videoDeviceHandles = std::move(newVdHandles);
+            _configLoaded.store(true, std::memory_order_release);
+        }
+
+        LOGINFO("LoadAllConfigs: getConfig=%" PRId64 "ms stores=%" PRId64 "ms handles=%" PRId64 "ms total=%" PRId64 "ms | "
+                "videoPortTypes=%zu videoPorts=%zu videoPortResolutions=%zu "
+                "audioTypes=%zu audioPorts=%zu videoConfigs=%zu "
+                "indicators=%zu colors=%zu textDisplays=%zu colorBindings=%zu",
+            msGetConfig, msStores,
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - tHandles).count(),
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - tTotal).count(),
+            _vpConfigStore.typeConfigs.size(),    _vpConfigStore.portConfigs.size(),  _vpConfigStore.resolutions.size(),
+            _audioConfigStore.typeConfigs.size(), _audioConfigStore.portConfigs.size(),
+            _vdConfigStore.deviceConfigs.size(),
+            _fpConfigStore.indicators.size(),     _fpConfigStore.colors.size(),
+            _fpConfigStore.textDisplays.size(),   _fpConfigStore.colorBindings.size());
+
+        return true;
+    }
+
+public:
+    // ============================================================================
+
+    // Config store accessors — use these instead of accessing stores directly.
+    // Config is populated lazily on the first accessor call via _ensureConfigLoaded().
+    // ============================================================================
+
+    // ---- VideoPort config ----
+
+    /** @return true if video port config has been loaded via LoadAllConfigs(). */
+    bool isVideoPortConfigLoaded() const { return !_vpConfigStore.IsEmpty(); }
+
+    /** @brief Get all video port entries (type, index, name) from the loaded config. */
+    bool getVideoPortEntries(std::vector<VideoPortEntry>& entries) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.getVideoPortEntries(entries); }
+
+    /** @brief Get the default video port name (prefers HDMI0, then INTERNAL0). */
+    std::string getDefaultVideoPortName() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetDefaultVideoPortName(); }
+
+    /** @brief Get the HAL default resolution string for a named video port. */
+    std::string getVideoPortDefaultResolution(const std::string& portName) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetDefaultResolution(portName); }
+
+    /** @brief Look up the type config entry for a VideoPort enum value. */
+    bool getVideoPortTypeConfig(VideoPortType typeId, VideoPortTypeConfig& cfg) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetTypeConfig(typeId, cfg); }
+
+    /** @brief Get the audio port (type and index) connected to a named video port. */
+    bool getConnectedAudioPort(const std::string& portName,
+                                int32_t& connectedAudioType,
+                                int32_t& connectedAudioIndex) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetConnectedAudioPort(portName, connectedAudioType, connectedAudioIndex); }
+
+    /** @brief Resolve a video port name or type-name string to a VideoPortEntry. */
+    bool resolveVideoPortByName(const std::string& portName, VideoPortEntry& entry) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.ResolveByName(portName, entry); }
+
+    /** @brief Get the deduplicated flat resolution list across all loaded port types. */
+    std::vector<VideoPortResolution> getVideoPortResolutions() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetResolutions(); }
+
+    /** @brief Get the resolutions for a specific VideoPort type. */
+    bool getVideoPortResolutionsForType(VideoPortType typeId,
+                                         std::vector<VideoPortResolution>& out) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.GetResolutionsForType(typeId, out); }
+
+    /**
+     * @brief Store a resolution list for @p portType (call after LoadVideoPortResolutionConfig).
+     *
+     * @code
+     *   void OnDeviceSettingsActivated() override {
+     *       // Config is loaded lazily — no explicit load call needed.
+     *       std::vector<VideoPortEntry> entries;
+     *       if (getVideoPortEntries(entries)) {
+     *           for (const auto& e : entries) {
+     *               std::vector<VideoPortResolution> res;
+     *               if (LoadVideoPortResolutionConfig(e.type, res))
+     *                   storeVideoPortResolutionsForType(e.type, std::move(res));
+     *           }
+     *       }
+     *   }
+     * @endcode
+     */
+    void storeVideoPortResolutionsForType(VideoPortType typeId,
+                                           std::vector<VideoPortResolution> resolutions)
+    {
+        std::lock_guard<std::mutex> lock(_configMutex);
+        _vpConfigStore.resolutionsByType[typeId] = std::move(resolutions);
+        for (const auto& res : _vpConfigStore.resolutionsByType[typeId]) {
+            const auto it = std::find_if(
+                _vpConfigStore.resolutions.begin(), _vpConfigStore.resolutions.end(),
+                [&res](const VideoPortResolution& r) { return EqualsIgnoreCase(r.name, res.name); });
+            if (it == _vpConfigStore.resolutions.end())
+                _vpConfigStore.resolutions.push_back(res);
+        }
+    }
+
+    // ---- Audio config ----
+
+    /** @return true if audio config has been loaded via LoadAllConfigs(). */
+    bool isAudioConfigLoaded() const { return !_audioConfigStore.IsEmpty(); }
+
+    /** @brief Get all audio port entries (type, index, name) from the loaded config. */
+    bool getAudioPortEntries(std::vector<AudioPortEntry>& entries) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _audioConfigStore.getAudioPortEntries(entries); }
+
+    /** @brief Get the default audio port name (prefers HDMI0 or SPEAKER0). */
+    std::string getDefaultAudioPortName() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _audioConfigStore.GetDefaultAudioPortName(); }
+
+    /** @brief Look up the audio type config for a given type ID. */
+    bool getAudioTypeConfig(int32_t typeId, AudioTypeConfigInfo& cfg) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _audioConfigStore.GetTypeConfig(typeId, cfg); }
+
+    /** @return true if an HDMI audio output port is present in the loaded config. */
+    bool isHDMIAudioOutPortPresent() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _audioConfigStore.IsHDMIOutPortPresent(); }
+
+    // ---- Video device config ----
+
+    /** @return true if video device config has been loaded via LoadAllConfigs(). */
+    bool isVideoDeviceConfigLoaded() const { return !_vdConfigStore.IsEmpty(); }
+
+    /** @return Number of video devices in the loaded config. */
+    size_t getVideoDeviceCount() const { return _vdConfigStore.GetCount(); }
+
+    /** @brief Get the video device config entry at @p index (0-based). */
+    bool getVideoDeviceConfig(int32_t index, VideoDeviceConfigInfo& cfg) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vdConfigStore.GetConfig(index, cfg); }
+
+    // ---- FPD config ----
+
+    /** @return true if front panel config has been loaded via LoadAllConfigs(). */
+    bool isFrontPanelConfigLoaded() const { return !_fpConfigStore.IsEmpty(); }
+
+    /** @brief Get all FPD indicator configs. */
+    std::vector<FPDIndicatorConfig> getFPDIndicators() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetIndicators(); }
+
+    /** @brief Get all FPD color configs. */
+    std::vector<FPDColorConfig> getFPDColors() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetColors(); }
+
+    /** @brief Get all FPD text display configs. */
+    std::vector<FPDTextDisplayConfig> getFPDTextDisplays() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetTextDisplays(); }
+
+    /** @brief Get all FPD color binding configs. */
+    std::vector<FPDColorBinding> getFPDColorBindings() const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetColorBindings(); }
+
+    /** @brief Look up an FPD indicator config by ID. */
+    bool getFPDIndicatorById(int32_t id, FPDIndicatorConfig& cfg) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetIndicatorById(id, cfg); }
+
+    /** @brief Look up an FPD text display config by name (case-insensitive). */
+    bool getFPDTextDisplayByName(const std::string& name, FPDTextDisplayConfig& cfg) const
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _fpConfigStore.GetTextDisplayByName(name, cfg); }
+
+    /**
      * @brief Look up an audio port handle by name.
      *
      * Use when you only need the port handle without a connectivity check.
@@ -1246,6 +1715,8 @@ public:
      */
     int32_t getCachedAudioPortHandle(const std::string& audioPortName) const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         const auto it = _audioPortHandles.find(audioPortName);
         if (it != _audioPortHandles.end()) {
             return it->second;
@@ -1263,6 +1734,8 @@ public:
      */
     int32_t getCachedVideoPortHandle(const std::string& videoPortName) const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         const auto it = _videoPortHandles.find(videoPortName);
         if (it != _videoPortHandles.end()) {
             return it->second;
@@ -1280,6 +1753,8 @@ public:
      */
     int32_t getCachedDisplayHandle(const std::string& portName) const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         const auto it = _displayHandles.find(portName);
         if (it != _displayHandles.end()) {
             return it->second;
@@ -1300,6 +1775,8 @@ public:
      */
     int32_t getCachedVideoDeviceHandle(int32_t index = 0) const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         if (index < 0 || static_cast<size_t>(index) >= _videoDeviceHandles.size()) {
             LOGERR("getCachedVideoDeviceHandle: index %d out of range (count=%zu)",
                    index, _videoDeviceHandles.size());
@@ -1320,6 +1797,8 @@ public:
      */
     std::vector<std::pair<std::string, int32_t>> getAudioPortHandleEntries() const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         std::vector<std::pair<std::string, int32_t>> entries;
         for (const auto& kv : _audioPortHandles) {
             entries.emplace_back(kv.first, kv.second);
@@ -1336,6 +1815,8 @@ public:
      */
     bool hasAudioPortHandle(const std::string& portName) const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         return _audioPortHandles.count(portName) > 0;
     }
 
@@ -1347,6 +1828,8 @@ public:
      */
     std::vector<std::pair<std::string, int32_t>> getVideoPortHandleEntries() const
     {
+        _ensureConfigLoaded();
+        std::lock_guard<std::mutex> lock(_configMutex);
         std::vector<std::pair<std::string, int32_t>> entries;
         for (const auto& kv : _videoPortHandles) {
             entries.emplace_back(kv.first, kv.second);
@@ -1394,20 +1877,33 @@ public:
         const std::string& portName,
         int32_t& portHandle)
     {
+        _ensureConfigLoaded();
         Core::hresult comResult = Core::ERROR_NONE;
-        portHandle = getCachedAudioPortHandle(portName);
-        if (INVALID_DS_HANDLE == portHandle) {
-            return false;  // getCachedAudioPortHandle already logged the error
+
+        // Snapshot both audio and video port handles under lock before any COM-RPC
+        int32_t vpHandle = INVALID_DS_HANDLE;
+        {
+            std::lock_guard<std::mutex> lock(_configMutex);
+            const auto audioIt = _audioPortHandles.find(portName);
+            if (audioIt == _audioPortHandles.end()) {
+                LOGERR("getCachedAudioPortHandle: audioPort '%s' not found in handles map", portName.c_str());
+                portHandle = INVALID_DS_HANDLE;
+                return false;
+            }
+            portHandle = audioIt->second;
+            const auto vpIt2 = _videoPortHandles.find(portName);
+            if (vpIt2 != _videoPortHandles.end())
+                vpHandle = vpIt2->second;
         }
+
         if (portName.find("HDMI") != std::string::npos && portName.find("ARC") == std::string::npos) {
             // HDMI audio port -- connected iff the video display is connected
             // mirrors: VideoOutputPortConfig::getPort("HDMI0").isDisplayConnected()
-            const auto vpIt = _videoPortHandles.find(portName);
-            if (vpIt != _videoPortHandles.end()) {
+            if (vpHandle != INVALID_DS_HANDLE) {
                 auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
                 if (vp != nullptr) {
                     bool connected = false;
-                    comResult = vp->IsVideoPortDisplayConnected(vpIt->second, connected);
+                    comResult = vp->IsVideoPortDisplayConnected(vpHandle, connected);
                     if (comResult != Core::ERROR_NONE) {
                         LOGERR("IsVideoPortDisplayConnected failed for '%s': %u",portName.c_str(), comResult);
                     }
@@ -1492,17 +1988,13 @@ public:
 
 protected:
     // -------------------------------------------------------------------------
-    // Cached port handles and config stores
-    // Populated in OnDeviceSettingsActivated(), cleared in OnDeviceSettingsDeactivated().
-    // Derived classes may read/write these directly in their overrides.
+    // Cached port handles — available to derived classes in overrides.
+    // Config data is accessed through the public accessor methods above.
     // -------------------------------------------------------------------------
     std::map<std::string, int32_t> _videoPortHandles;   ///< key = port name e.g. "HDMI0"
     std::map<std::string, int32_t> _audioPortHandles;   ///< key = port name e.g. "HDMI0"
     std::map<std::string, int32_t> _displayHandles;     ///< key = port name
     std::vector<int32_t>           _videoDeviceHandles; ///< index = device index (0-based)
-    VideoPortConfigStore           _vpConfigStore;      ///< port types, names, resolutions
-    AudioConfigStore               _audioConfigStore;   ///< audio port types and names
-    VideoDeviceConfigStore         _vdConfigStore;      ///< video device capabilities
     /**
      * @brief Called when the DeviceSettings plugin activates (or re-activates
      *        after a crash/restart).
@@ -1544,23 +2036,79 @@ private:
     void Operational(const bool upAndRunning) override final
     {
         if (upAndRunning) {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings activated — re-registering event notifications", _callsign.c_str());
-            _videoPortHandles.clear();
-            _audioPortHandles.clear();
-            _displayHandles.clear();
-            _videoDeviceHandles.clear();
+            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings activated — invalidating stale config", _callsign.c_str());
+            {
+                std::lock_guard<std::mutex> lock(_configMutex);
+                _configLoaded.store(false, std::memory_order_release);
+                _videoPortHandles.clear();
+                _audioPortHandles.clear();
+                _displayHandles.clear();
+                _videoDeviceHandles.clear();
+            }
+            // Config is loaded lazily on the first accessor call via _ensureConfigLoaded().
+            // Client plugins must NOT call LoadAllConfigs() — it is an internal helper only.
             OnDeviceSettingsActivated();
         } else {
-            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings deactivated — cleaning up stale state", _callsign.c_str());
+            LOGINFO("DeviceSettingsClientHelper[%s]: DeviceSettings deactivated — clearing config and handles", _callsign.c_str());
             OnDeviceSettingsDeactivated();
-            _videoPortHandles.clear();
-            _audioPortHandles.clear();
-            _displayHandles.clear();
-            _videoDeviceHandles.clear();
+            {
+                std::lock_guard<std::mutex> lock(_configMutex);
+                _configLoaded.store(false, std::memory_order_release);
+                _vpConfigStore.Clear();
+                _audioConfigStore.Clear();
+                _vdConfigStore.Clear();
+                _fpConfigStore.Clear();
+                _videoPortHandles.clear();
+                _audioPortHandles.clear();
+                _displayHandles.clear();
+                _videoDeviceHandles.clear();
+            }
         }
     }
 
 private:
+    VideoPortConfigStore    _vpConfigStore;      ///< port types, names, resolutions
+    AudioConfigStore        _audioConfigStore;   ///< audio type and port configs
+    VideoDeviceConfigStore  _vdConfigStore;      ///< video device capabilities
+    FrontPanelConfigStore   _fpConfigStore;      ///< FPD colors, indicators, text displays, bindings
+
+    mutable std::mutex _configMutex;            ///< guards stores, handle maps and _configLoaded
+    mutable std::mutex _initMutex;              ///< serialises concurrent LoadAllConfigs() calls
+    std::atomic<bool>  _configLoaded { false }; ///< true once LoadAllConfigs() has committed
+
+    /**
+     * @brief Ensures static config is loaded before any accessor is used.
+     *
+     * Uses double-checked locking so that:
+     *   - Fast path (already loaded): one atomic read, no lock, returns immediately.
+     *   - Slow path (not loaded): acquires _initMutex, re-checks under the lock so
+     *     that only ONE thread ever calls LoadAllConfigs() at a time; all other
+     *     concurrent callers wait and then skip the load once the winner completes.
+     *
+     * _initMutex is intentionally separate from _configMutex to avoid deadlock
+     * (LoadAllConfigs() acquires _configMutex in Phase 4 while holding _initMutex).
+     */
+    void _ensureConfigLoaded() const
+    {
+        // Fast path — single atomic read, no lock acquired
+        if (_configLoaded.load(std::memory_order_acquire))
+            return;
+
+        // Slow path — serialise concurrent callers so only one runs LoadAllConfigs()
+        std::lock_guard<std::mutex> initLock(_initMutex);
+        // Double-check: a previous waiter may have already completed the load
+        if (!_configLoaded.load(std::memory_order_relaxed)) {
+            LOGINFO("DeviceSettingsClientHelper[%s]: config not yet loaded — triggering LoadAllConfigs()",
+                    _callsign.c_str());
+            const bool ok = const_cast<DeviceSettingsClientHelper*>(this)->LoadAllConfigs();
+            if (!ok) {
+                // _configLoaded remains false — next accessor call will retry
+                LOGERR("DeviceSettingsClientHelper[%s]: LoadAllConfigs() failed — config remains unloaded",
+                       _callsign.c_str());
+            }
+        }
+    }
+
     PluginHost::IShell* _service;
     string              _callsign;
 };
