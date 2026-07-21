@@ -26,18 +26,15 @@
  *        DeviceSettings plugin via a single COM-RPC link on IDeviceSettings
  *        (ID_DEVICESETTINGS) and acquire sub-interfaces via QueryInterface.
  *
- * This header also provides the configuration store types and loader functions
- * (previously in DeviceSettingsConfig.h) so that a single include covers both
- * the COM-RPC connection management and the HAL config loading:
- *   - VideoPortConfigStore  / LoadVideoPortConfig()
- *   - AudioConfigStore      / LoadAudioConfig()
- *   - VideoDeviceConfigStore/ LoadVideoDeviceConfig()
- *   - FrontPanelConfigStore / LoadFrontPanelConfig()
+ * This header also provides the configuration store types (VideoPortConfigStore,
+ * AudioConfigStore, VideoDeviceConfigStore, FrontPanelConfigStore) and the
+ * DSHelper class that loads all static config in one consolidated call using
+ * IDeviceSettings::GetDeviceSettingConfigs().
  *
- * The DSHelper class additionally exposes single-argument
- * convenience wrappers (e.g. LoadVideoPortConfig(store)) that internally call
- * AcquireSubInterface<T>() so callers never need to manage raw interface pointers
- * for configuration loading.
+ * The individual per-component load functions (LoadVideoPortConfig,
+ * LoadAudioConfig, LoadVideoDeviceConfig, LoadFrontPanelConfig) and their
+ * associated COM-RPC iterator types have been removed. All config loading
+ * now goes through DSHelper::LoadAllConfigs() which calls GetDeviceSettingConfigs().
  *
  * ## Architecture
  *
@@ -63,29 +60,15 @@
  *   5. DeviceSettings restarts → Operational(true) again →
  *        OnDeviceSettingsActivated() re-called automatically
  *
- * ## Config loading — convenience member wrappers
+ * ## Config loading — LoadAllConfigs() via GetDeviceSettingConfigs()
  *
- * Inside OnDeviceSettingsActivated() (or anywhere after Open()), call the
- * single-argument form to load config without managing raw interface pointers:
+ * All static configuration (audio, video port, video device, FPD) is loaded
+ * in a single COM-RPC call inside OnDeviceSettingsActivated():
  *
  * @code
- *   VideoPortConfigStore vpStore;
- *   AudioConfigStore     audioStore;
- *
  *   void OnDeviceSettingsActivated() override {
- *       LoadVideoPortConfig(vpStore);   // acquires IDeviceSettingsVideoPort internally
- *       LoadAudioConfig(audioStore);    // acquires IDeviceSettingsAudio internally
- *   }
- * @endcode
- *
- * The two-argument free-function overloads are also available for callers that
- * already hold a raw sub-interface pointer:
- *
- * @code
- *   auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
- *   if (vp) {
- *       LoadVideoPortConfig(vp, vpStore);
- *       vp->Release();
+ *       // LoadAllConfigs() calls GetDeviceSettingConfigs() once;
+ *       // all DSHelper::getXxx() accessors are then available.
  *   }
  * @endcode
  *
@@ -138,7 +121,7 @@
  *
  *     // Called when DeviceSettings (re-)activates
  *     void OnDeviceSettingsActivated() override {
- *         LoadVideoDeviceConfig(_vdStore);   // convenience wrapper — no raw pointer needed
+ *         // Config loaded automatically by DSHelper::LoadAllConfigs() via GetDeviceSettingConfigs()
  *         auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
  *         if (vd) {
  *             vd->GetVideoDeviceHandle(0, _videoDeviceHandle);
@@ -204,10 +187,8 @@ using DeviceSettingsVideoDevice = WPEFramework::Exchange::IDeviceSettingsVideoDe
 using DeviceSettingsVideoPort   = WPEFramework::Exchange::IDeviceSettingsVideoPort;
 
 using AudioPortType             = DeviceSettingsAudio::AudioPortType;
-using AudioTypeConfigInfo       = DeviceSettingsAudio::AudioTypeConfigInfo;
+using AudioTypeConfigInfo       = WPEFramework::Exchange::IDeviceSettings::AudioTypeConfigInfo;
 using AudioPortConfigInfo       = DeviceSettingsAudio::AudioPortConfigInfo;
-using IAudioTypeConfigIterator  = DeviceSettingsAudio::IAudioTypeConfigIterator;
-using IAudioPortConfigIterator  = DeviceSettingsAudio::IAudioPortConfigIterator;
 // Audio: operational enum types used in COM-RPC client code
 using AudioDuckingType          = DeviceSettingsAudio::AudioDuckingType;
 using AudioDuckingAction        = DeviceSettingsAudio::AudioDuckingAction;
@@ -216,8 +197,6 @@ using VideoPortType                  = DeviceSettingsVideoPort::VideoPort;
 using VideoPortResolution            = DeviceSettingsVideoPort::VideoPortResolution;
 using VideoPortTypeConfig            = DeviceSettingsVideoPort::VideoPortTypeConfig;
 using VideoPortPortConfig            = DeviceSettingsVideoPort::VideoPortPortConfig;
-using IVideoPortTypeConfigIterator   = DeviceSettingsVideoPort::IVideoPortTypeConfigIterator;
-using IVideoPortPortConfigIterator   = DeviceSettingsVideoPort::IVideoPortPortConfigIterator;
 using IVideoPortResolutionIterator   = DeviceSettingsVideoPort::IVideoPortResolutionIterator;
 // VideoPort: operational enum types used in COM-RPC client code
 using TVResolution              = DeviceSettingsVideoPort::TVResolution;
@@ -226,7 +205,6 @@ using DisplayColorDepth         = DeviceSettingsVideoPort::DisplayColorDepth;
 using VideoPortSurroundMode     = DeviceSettingsVideoPort::VideoPortSurroundMode;
 
 using VideoDeviceConfigInfo          = DeviceSettingsVideoDevice::VideoDeviceConfigInfo;
-using IVideoDeviceConfigIterator     = DeviceSettingsVideoDevice::IVideoDeviceConfigIterator;
 // VideoDevice: operational enum types used in COM-RPC client code
 using VideoZoom                 = DeviceSettingsVideoDevice::VideoZoom;
 using VideoCodec                = DeviceSettingsVideoDevice::VideoCodec;
@@ -235,14 +213,10 @@ using VideoCodec                = DeviceSettingsVideoDevice::VideoCodec;
 using DisplayAVIContentType     = DeviceSettingsDisplay::DisplayAVIContentType;
 using DisplayAVIScanInformation = DeviceSettingsDisplay::DisplayAVIScanInformation;
 
-using FPDColorConfig                 = DeviceSettingsFPD::FPDColorConfig;
-using FPDIndicatorConfig             = DeviceSettingsFPD::FPDIndicatorConfig;
-using FPDTextDisplayConfig           = DeviceSettingsFPD::FPDTextDisplayConfig;
-using FPDColorBinding                = DeviceSettingsFPD::FPDColorBinding;
-using IFPDTextDisplayConfigIterator  = DeviceSettingsFPD::IFPDTextDisplayConfigIterator;
-using IFPDIndicatorConfigIterator    = DeviceSettingsFPD::IFPDIndicatorConfigIterator;
-using IFPDColorConfigIterator        = DeviceSettingsFPD::IFPDColorConfigIterator;
-using IFPDColorBindingIterator       = DeviceSettingsFPD::IFPDColorBindingIterator;
+using FPDColorConfig                 = WPEFramework::Exchange::IDeviceSettings::FPDColorConfig;
+using FPDIndicatorConfig             = WPEFramework::Exchange::IDeviceSettings::FPDIndicatorConfig;
+using FPDTextDisplayConfig           = WPEFramework::Exchange::IDeviceSettings::FPDTextDisplayConfig;
+using FPDColorBinding                = WPEFramework::Exchange::IDeviceSettings::FPDColorBinding;
 
 #define INVALID_DS_HANDLE -1
 
@@ -371,7 +345,7 @@ struct AudioPortEntry {
 
 // ============================================================================
 // VideoPortConfigStore
-//   Populated by: LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort*, ...)
+//   Populated by: DSHelper::LoadAllConfigs() via GetDeviceSettingConfigs()
 // ============================================================================
 
 struct VideoPortConfigStore {
@@ -536,7 +510,7 @@ struct VideoPortConfigStore {
 
 // ============================================================================
 // AudioConfigStore
-//   Populated by: LoadAudioConfig(Exchange::IDeviceSettingsAudio*, ...)
+//   Populated by: DSHelper::LoadAllConfigs() via GetDeviceSettingConfigs()
 // ============================================================================
 
 struct AudioConfigStore {
@@ -614,7 +588,7 @@ struct AudioConfigStore {
 
 // ============================================================================
 // VideoDeviceConfigStore
-//   Populated by: LoadVideoDeviceConfig(Exchange::IDeviceSettingsVideoDevice*, ...)
+//   Populated by: DSHelper::LoadAllConfigs() via GetDeviceSettingConfigs()
 // ============================================================================
 
 struct VideoDeviceConfigStore {
@@ -652,7 +626,7 @@ struct VideoDeviceConfigStore {
 
 // ============================================================================
 // FrontPanelConfigStore
-//   Populated by: LoadFrontPanelConfig(Exchange::IDeviceSettingsFPD*, ...)
+//   Populated by: DSHelper::LoadAllConfigs() via GetDeviceSettingConfigs()
 // ============================================================================
 
 struct FrontPanelConfigStore {
@@ -718,90 +692,6 @@ struct FrontPanelConfigStore {
 };
 
 // ============================================================================
-// Standalone load functions — one per component interface (inline)
-// These accept a raw sub-interface pointer for callers that already hold one.
-// Prefer the DSHelper member wrappers below when possible.
-// ============================================================================
-
-inline bool LoadVideoPortConfig(Exchange::IDeviceSettingsVideoPort* iface, VideoPortConfigStore& store)
-{
-    store.Clear();
-
-    if (iface == nullptr) {
-        LOGERR("LoadVideoPortConfig: iface is null");
-        return false;
-    }
-
-    IVideoPortTypeConfigIterator* typeIt = nullptr;
-    IVideoPortPortConfigIterator* portIt = nullptr;
-
-    const uint32_t result = iface->GetVideoPortConfig(typeIt, portIt);
-    if (result != Core::ERROR_NONE) {
-        LOGERR("LoadVideoPortConfig: GetVideoPortConfig failed: %u", result);
-        if (typeIt) typeIt->Release();
-        if (portIt) portIt->Release();
-        return false;
-    }
-
-    if (typeIt != nullptr) {
-        VideoPortTypeConfig cfg;
-        while (typeIt->Next(cfg)) {
-            store.typeConfigs.push_back(cfg);
-        }
-        typeIt->Release();
-    }
-
-    if (portIt != nullptr) {
-        VideoPortPortConfig cfg;
-        while (portIt->Next(cfg)) {
-            store.portConfigs.push_back(cfg);
-        }
-        portIt->Release();
-    }
-
-    // Resolution configuration is retrieved per video port type via GetVideoPortResolutionConfig().
-    // Results are stored in both resolutionsByType (per-type) and resolutions (deduplicated union).
-    for (size_t i = 0; i < store.typeConfigs.size(); ++i) {
-        const VideoPortType portType = store.typeConfigs[i].typeId;
-        IVideoPortResolutionIterator* resIt = nullptr;
-        const uint32_t resResult = iface->GetVideoPortResolutionConfig(portType, resIt);
-        if (resResult != Core::ERROR_NONE) {
-            LOGWARN("LoadVideoPortConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
-                static_cast<int>(portType), resResult);
-            if (resIt) {
-                resIt->Release();
-            }
-            continue;
-        }
-
-        if (resIt != nullptr) {
-            std::vector<VideoPortResolution>& typeResolutions = store.resolutionsByType[portType];
-            VideoPortResolution res;
-            while (resIt->Next(res)) {
-                typeResolutions.push_back(res);
-
-                // Add to flat deduplicated union
-                const auto it = std::find_if(
-                    store.resolutions.begin(),
-                    store.resolutions.end(),
-                    [&res](const VideoPortResolution& existing) {
-                        return EqualsIgnoreCase(existing.name, res.name);
-                    });
-                if (it == store.resolutions.end()) {
-                    store.resolutions.push_back(res);
-                }
-            }
-            resIt->Release();
-            LOGINFO("LoadVideoPortConfig: type=%d resolutions=%zu",
-                    static_cast<int>(portType), typeResolutions.size());
-        }
-    }
-
-    LOGINFO("LoadVideoPortConfig: types=%zu ports=%zu resolutions=%zu",
-            store.typeConfigs.size(), store.portConfigs.size(), store.resolutions.size());
-    return true;
-}
-
 /**
  * @brief Load the supported resolutions for a single VideoPort type.
  *
@@ -844,139 +734,6 @@ inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* if
     LOGINFO("LoadVideoPortResolutionConfig: type=%d resolutions=%zu",
             static_cast<int>(portType), out.size());
     return !out.empty();
-}
-
-inline bool LoadAudioConfig(Exchange::IDeviceSettingsAudio* iface, AudioConfigStore& store)
-{
-    store.Clear();
-
-    if (iface == nullptr) {
-        LOGERR("LoadAudioConfig: iface is null");
-        return false;
-    }
-
-    IAudioTypeConfigIterator* typeIt = nullptr;
-    IAudioPortConfigIterator* portIt = nullptr;
-
-    const uint32_t result = iface->GetAudioConfig(typeIt, portIt);
-    if (result != Core::ERROR_NONE) {
-        LOGERR("LoadAudioConfig: GetAudioConfig failed: %u", result);
-        if (typeIt) typeIt->Release();
-        if (portIt) portIt->Release();
-        return false;
-    }
-
-    if (typeIt != nullptr) {
-        AudioTypeConfigInfo cfg;
-        while (typeIt->Next(cfg)) {
-            store.typeConfigs.push_back(cfg);
-        }
-        typeIt->Release();
-    }
-
-    if (portIt != nullptr) {
-        AudioPortConfigInfo cfg;
-        while (portIt->Next(cfg)) {
-            store.portConfigs.push_back(cfg);
-        }
-        portIt->Release();
-    }
-
-    LOGINFO("LoadAudioConfig: types=%zu ports=%zu",
-            store.typeConfigs.size(), store.portConfigs.size());
-    return true;
-}
-
-inline bool LoadVideoDeviceConfig(Exchange::IDeviceSettingsVideoDevice* iface, VideoDeviceConfigStore& store)
-{
-    store.Clear();
-
-    if (iface == nullptr) {
-        LOGERR("LoadVideoDeviceConfig: iface is null");
-        return false;
-    }
-
-    IVideoDeviceConfigIterator* it = nullptr;
-
-    const uint32_t result = iface->GetVideoDeviceConfig(it);
-    if (result != Core::ERROR_NONE) {
-        LOGERR("LoadVideoDeviceConfig: GetVideoDeviceConfig failed: %u", result);
-        if (it) it->Release();
-        return false;
-    }
-
-    if (it != nullptr) {
-        VideoDeviceConfigInfo cfg;
-        while (it->Next(cfg)) {
-            store.deviceConfigs.push_back(cfg);
-        }
-        it->Release();
-    }
-
-    LOGINFO("LoadVideoDeviceConfig: devices=%zu", store.deviceConfigs.size());
-    return true;
-}
-
-inline bool LoadFrontPanelConfig(Exchange::IDeviceSettingsFPD* iface, FrontPanelConfigStore& store)
-{
-    store.Clear();
-
-    if (iface == nullptr) {
-        LOGERR("LoadFrontPanelConfig: iface is null");
-        return false;
-    }
-
-    IFPDTextDisplayConfigIterator* textIt    = nullptr;
-    IFPDIndicatorConfigIterator*   indicIt   = nullptr;
-    IFPDColorConfigIterator*       colorIt   = nullptr;
-    IFPDColorBindingIterator*      bindingIt = nullptr;
-
-    const uint32_t result = iface->GetFrontPanelConfig(textIt, indicIt, colorIt, bindingIt);
-    if (result != Core::ERROR_NONE) {
-        LOGERR("LoadFrontPanelConfig: GetFrontPanelConfig failed: %u", result);
-        if (textIt)    textIt->Release();
-        if (indicIt)   indicIt->Release();
-        if (colorIt)   colorIt->Release();
-        if (bindingIt) bindingIt->Release();
-        return false;
-    }
-
-    if (textIt != nullptr) {
-        FPDTextDisplayConfig cfg;
-        while (textIt->Next(cfg)) {
-            store.textDisplays.push_back(cfg);
-        }
-        textIt->Release();
-    }
-
-    if (indicIt != nullptr) {
-        FPDIndicatorConfig cfg;
-        while (indicIt->Next(cfg)) {
-            store.indicators.push_back(cfg);
-        }
-        indicIt->Release();
-    }
-
-    if (colorIt != nullptr) {
-        FPDColorConfig cfg;
-        while (colorIt->Next(cfg)) {
-            store.colors.push_back(cfg);
-        }
-        colorIt->Release();
-    }
-
-    if (bindingIt != nullptr) {
-        FPDColorBinding cfg;
-        while (bindingIt->Next(cfg)) {
-            store.colorBindings.push_back(cfg);
-        }
-        bindingIt->Release();
-    }
-
-    LOGINFO("LoadFrontPanelConfig: textDisplays=%zu indicators=%zu colors=%zu bindings=%zu",
-            store.textDisplays.size(), store.indicators.size(),
-            store.colors.size(), store.colorBindings.size());
-    return true;
 }
 
 // ============================================================================
@@ -1106,46 +863,6 @@ public:
         }
         return sub;
     }
-
-    /**
-     * @brief Convenience: acquire IDeviceSettingsVideoPort, load config into
-     *        @p store, then release the sub-interface.
-     *
-     * Equivalent to:
-     * @code
-     *   auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
-     *   if (vp) { LoadVideoPortConfig(vp, store); vp->Release(); }
-     * @endcode
-     */
-    bool LoadVideoPortConfig(VideoPortConfigStore& store)
-    {
-        _videoPortHandles.clear();
-        auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
-        if (!iface) return false;
-        const bool ok = ::WPEFramework::Plugin::LoadVideoPortConfig(iface, store);
-        if (ok) {
-            std::vector<VideoPortEntry> entries;
-            if (store.getVideoPortEntries(entries)) {
-                for (const VideoPortEntry& e : entries) {
-                    int32_t handle = INVALID_DS_HANDLE;
-                    Core::hresult rc = iface->GetVideoPort(e.type, e.index, handle);
-                    if (rc == Core::ERROR_NONE) {
-                        _videoPortHandles[e.name] = handle;
-                        LOGINFO("LoadVideoPortConfig: VideoPort '%s' -> handle=%d", e.name.c_str(), handle);
-                    } else {
-                        LOGERR("LoadVideoPortConfig: failed to acquire VideoPort '%s' handle, Error=%d",
-                               e.name.c_str(), rc);
-                    }
-                }
-            }
-            else {
-                LOGWARN("LoadVideoPortConfig: no video port entries found");
-            }
-        }
-        iface->Release();
-        return ok;
-    }
-
     /**
      * @brief Load the supported resolutions for a single VideoPort type.
      *
@@ -1182,82 +899,6 @@ public:
         iface->Release();
         return ok;
     }
-
-    /**
-     * @brief Convenience: acquire IDeviceSettingsAudio, load config into
-     *        @p store, then release the sub-interface.
-     */
-    bool LoadAudioConfig(AudioConfigStore& store)
-    {
-        _audioPortHandles.clear();
-        auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
-        if (!iface) return false;
-        const bool ok = ::WPEFramework::Plugin::LoadAudioConfig(iface, store);
-        if (ok) {
-            std::vector<AudioPortEntry> entries;
-            if (store.getAudioPortEntries(entries)) {
-                for (const AudioPortEntry& e : entries) {
-                    int32_t handle = INVALID_DS_HANDLE;
-                    Core::hresult rc = iface->GetAudioPort(e.type, e.index, handle);
-                    if (rc == Core::ERROR_NONE) {
-                        _audioPortHandles[e.name] = handle;
-                        LOGINFO("LoadAudioConfig: AudioPort '%s' -> handle=%d", e.name.c_str(), handle);
-                    } else {
-                        LOGERR("LoadAudioConfig: failed to acquire AudioPort '%s' handle, Error=%d",
-                               e.name.c_str(), rc);
-                    }
-                }
-            }
-            else {
-                LOGWARN("LoadAudioConfig: no audio port entries found");
-            }
-        }
-        iface->Release();
-        return ok;
-    }
-
-    /**
-     * @brief Convenience: acquire IDeviceSettingsVideoDevice, load config into
-     *        @p store, then release the sub-interface.
-     */
-    bool LoadVideoDeviceConfig(VideoDeviceConfigStore& store)
-    {
-        _videoDeviceHandles.clear();
-        auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
-        if (!iface) return false;
-        const bool ok = ::WPEFramework::Plugin::LoadVideoDeviceConfig(iface, store);
-        if (ok) {
-            const size_t count = store.GetCount();
-            _videoDeviceHandles.resize(count, INVALID_DS_HANDLE);
-            for (size_t i = 0; i < count; ++i) {
-                int32_t handle = INVALID_DS_HANDLE;
-                Core::hresult rc = iface->GetVideoDeviceHandle(static_cast<int32_t>(i), handle);
-                if (rc == Core::ERROR_NONE) {
-                    _videoDeviceHandles[i] = handle;
-                    LOGINFO("LoadVideoDeviceConfig: device[%zu] handle=%d", i, handle);
-                } else {
-                    LOGERR("LoadVideoDeviceConfig: GetVideoDeviceHandle(%zu) failed, Error=%d",
-                           i, static_cast<int>(rc));
-                }
-            }
-        }
-        iface->Release();
-        return ok;
-    }
-
-    /**
-     * @brief Convenience: acquire IDeviceSettingsFPD, load config into
-     *        @p store, then release the sub-interface.
-     */
-    bool LoadFrontPanelConfig(FrontPanelConfigStore& store)
-    {
-        auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsFPD>();
-        if (!iface) return false;
-        const bool ok = ::WPEFramework::Plugin::LoadFrontPanelConfig(iface, store);
-        iface->Release();
-        return ok;
-    }
-
     /**
      * @brief Reload only audio configuration and re-acquire audio port handles.
      *
@@ -1291,14 +932,8 @@ public:
 
         // Phase 2: build audio store from raw config (no COM-RPC, no lock)
         AudioConfigStore newAudio;
-        for (const auto& src : rawCfg.audioTypes) {
-            AudioTypeConfigInfo dst{};
-            dst.typeId = src.typeId; dst.name = src.name;
-            dst.supportedCompressionMask = src.supportedCompressionMask;
-            dst.supportedEncodingMask    = src.supportedEncodingMask;
-            dst.supportedStereoModeMask  = src.supportedStereoModeMask;
-            newAudio.typeConfigs.push_back(std::move(dst));
-        }
+        // AudioTypeConfigInfo is identical in IDeviceSettings — direct copy
+        newAudio.typeConfigs.assign(rawCfg.audioTypes.begin(), rawCfg.audioTypes.end());
         for (const auto& src : rawCfg.audioPorts) {
             AudioPortConfigInfo dst{};
             dst.audioPortType  = static_cast<AudioPortType>(src.audioPortType);
@@ -1360,8 +995,7 @@ private:
      * Internal — called only by _ensureConfigLoaded() on the first accessor call
      * after activation.  Client plugins must NOT call this directly.
      *
-     * Preferred over calling LoadVideoPortConfig(), LoadAudioConfig(),
-     * LoadVideoDeviceConfig() and LoadFrontPanelConfig() individually.
+     * Preferred over calling individual per-component acquire/release sequences.
      * Internally calls IDeviceSettings::GetDeviceSettingConfigs() for a single
      * round-trip, then acquires port/device handles via sub-interfaces.
      * Results are stored in private config stores and exposed through the
@@ -1435,14 +1069,8 @@ private:
                 typeRes.push_back(res); newVp.resolutions.push_back(res);
             }
         }
-        for (const auto& src : rawCfg.audioTypes) {
-            AudioTypeConfigInfo dst{};
-            dst.typeId = src.typeId; dst.name = src.name;
-            dst.supportedCompressionMask = src.supportedCompressionMask;
-            dst.supportedEncodingMask    = src.supportedEncodingMask;
-            dst.supportedStereoModeMask  = src.supportedStereoModeMask;
-            newAudio.typeConfigs.push_back(std::move(dst));
-        }
+        // AudioTypeConfigInfo is identical in IDeviceSettings — direct copy
+        newAudio.typeConfigs.assign(rawCfg.audioTypes.begin(), rawCfg.audioTypes.end());
         for (const auto& src : rawCfg.audioPorts) {
             AudioPortConfigInfo dst{};
             dst.audioPortType  = static_cast<AudioPortType>(src.audioPortType);
@@ -1455,31 +1083,11 @@ private:
             dst.defaultDFC = static_cast<VideoZoom>(src.defaultDFC);
             newVd.deviceConfigs.push_back(std::move(dst));
         }
-        for (const auto& src : rawCfg.colors) {
-            FPDColorConfig dst{}; dst.id = src.id; dst.color = src.color;
-            newFp.colors.push_back(std::move(dst));
-        }
-        for (const auto& src : rawCfg.indicators) {
-            FPDIndicatorConfig dst{};
-            dst.id = src.id; dst.maxBrightness = src.maxBrightness; dst.maxCycleRate = src.maxCycleRate;
-            dst.minBrightness = src.minBrightness; dst.levels = src.levels; dst.colorMode = src.colorMode;
-            newFp.indicators.push_back(std::move(dst));
-        }
-        for (const auto& src : rawCfg.textDisplays) {
-            FPDTextDisplayConfig dst{};
-            dst.id = src.id; dst.name = src.name; dst.maxBrightness = src.maxBrightness;
-            dst.maxCycleRate = src.maxCycleRate; dst.supportedCharacters = src.supportedCharacters;
-            dst.columns = src.columns; dst.rows = src.rows;
-            dst.maxHorizontalIterations = src.maxHorizontalIterations;
-            dst.maxVerticalIterations = src.maxVerticalIterations;
-            dst.levels = src.levels; dst.colorMode = src.colorMode;
-            newFp.textDisplays.push_back(std::move(dst));
-        }
-        for (const auto& src : rawCfg.colorBindings) {
-            FPDColorBinding dst{};
-            dst.targetType = src.targetType; dst.targetId = src.targetId; dst.colorId = src.colorId;
-            newFp.colorBindings.push_back(std::move(dst));
-        }
+        // FPD types are identical in IDeviceSettings — direct copy (no field-by-field conversion)
+        newFp.colors.assign(rawCfg.colors.begin(), rawCfg.colors.end());
+        newFp.indicators.assign(rawCfg.indicators.begin(), rawCfg.indicators.end());
+        newFp.textDisplays.assign(rawCfg.textDisplays.begin(), rawCfg.textDisplays.end());
+        newFp.colorBindings.assign(rawCfg.colorBindings.begin(), rawCfg.colorBindings.end());
         const int64_t msStores = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - tStores).count();
 
@@ -1768,7 +1376,7 @@ public:
     /**
      * @brief Returns the cached video device handle for the given device index.
      *
-     * Populated by LoadVideoDeviceConfig(). Use index 0 for the primary device.
+     * Populated by DSHelper::LoadAllConfigs(). Use index 0 for the primary device.
      *
      * @param index  Zero-based video device index (default: 0).
      * @return The cached handle on success, or INVALID_DS_HANDLE if out of range
