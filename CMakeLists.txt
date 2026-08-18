@@ -24,7 +24,7 @@ project(EntServicesHelpers)
 # FindDS.cmake, FindIARMBus.cmake etc. live in cmake/
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 
-find_package(WPEFramework)
+find_package(Thunder REQUIRED)
 
 option(COMCAST_CONFIG "Comcast services configuration" ON)
 if(COMCAST_CONFIG)
