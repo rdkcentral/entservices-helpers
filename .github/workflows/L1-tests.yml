@@ -166,13 +166,6 @@ jobs:
           &&
           cmake --install build/ThunderTools
 
-      - name: Apply patches Thunder
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          cd $GITHUB_WORKSPACE/Thunder
-          patch -p1 < $GITHUB_WORKSPACE/entservices-testframework/patches/1004-R4_4-RDK-Add-support-for-project-dir.patch
-          cd -
-
       - name: Build Thunder
         if: steps.cache.outputs.cache-hit != 'true'
         run: >
