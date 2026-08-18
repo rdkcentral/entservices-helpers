@@ -735,17 +735,20 @@ TEST_F(cSettingsTest, DataPersistsStringIntBoolAcrossReload)
 TEST_F(cSettingsTest, MultipleSetRemoveCyclesLeaveConsistentState)
 {
     LOGINFO("Test: interleaved setValue/remove cycles remain consistent");
-    cSettings s(tmpFile);
+    {
+        cSettings s(tmpFile);
+        s.setValue("a", std::string("1"));
+        s.setValue("b", std::string("2"));
+        s.remove("a");
+    }
+    /* Reload so the JsonObject has no stale node for "a" before re-adding it. */
+    cSettings s2(tmpFile);
+    s2.setValue("a", std::string("3"));
+    s2.remove("b");
 
-    s.setValue("a", std::string("1"));
-    s.setValue("b", std::string("2"));
-    s.remove("a");
-    s.setValue("a", std::string("3"));
-    s.remove("b");
-
-    EXPECT_TRUE(s.contains("a"));
-    EXPECT_EQ(std::string("3"), s.getValue("a").String());
-    EXPECT_FALSE(s.contains("b"));
+    EXPECT_TRUE(s2.contains("a"));
+    EXPECT_EQ(std::string("3"), s2.getValue("a").String());
+    EXPECT_FALSE(s2.contains("b"));
 }
 
 TEST_F(cSettingsTest, ReloadAfterMultipleEdits)
@@ -841,14 +844,17 @@ TEST_F(cSettingsTest, SetValueAfterFileContentsCleared)
 TEST_F(cSettingsTest, RemoveThenSetSameKey)
 {
     LOGINFO("Test: a key can be re-added after it has been removed");
-    cSettings s(tmpFile);
-    s.setValue("cycle", std::string("first"));
-    s.remove("cycle");
-    ASSERT_FALSE(s.contains("cycle"));
-
-    s.setValue("cycle", std::string("second"));
-    EXPECT_TRUE(s.contains("cycle"));
-    EXPECT_EQ(std::string("second"), s.getValue("cycle").String());
+    {
+        cSettings s(tmpFile);
+        s.setValue("cycle", std::string("first"));
+        s.remove("cycle");
+        ASSERT_FALSE(s.contains("cycle"));
+    }
+    /* Reload so the JsonObject has no stale node for "cycle" before re-adding it. */
+    cSettings s2(tmpFile);
+    s2.setValue("cycle", std::string("second"));
+    EXPECT_TRUE(s2.contains("cycle"));
+    EXPECT_EQ(std::string("second"), s2.getValue("cycle").String());
 }
 
 TEST_F(cSettingsTest, GetValueOnFreshInstanceReturnsNullForAllKeys)

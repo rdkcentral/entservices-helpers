@@ -108,7 +108,7 @@ public:
     /* Virtual destructor: object is deleted via base ptr in Release() */
     ~TestIfaceImpl() override = default;
 
-    void AddRef() const override { ++_refCount; }
+    uint32_t AddRef() const override { return ++_refCount; }
 
     uint32_t Release() const override
     {
