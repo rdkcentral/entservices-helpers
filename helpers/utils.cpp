@@ -30,7 +30,7 @@
 #include <mutex>
 
 #define MAX_STRING_LENGTH 2048
-using namespace WPEFramework;
+using namespace Thunder;
 using namespace std;
 
 const char* Helpers::IARM::NAME = "Thunder_Plugins";
@@ -250,10 +250,10 @@ bool Helpers::SecurityToken::isThunderSecurityConfigured()
 }
 
 #ifdef USE_THUNDER_COMMUNICATION
-std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> > Helpers::getThunderControllerClient(std::string callsign)
+std::shared_ptr<Thunder::JSONRPC::LinkType<Thunder::Core::JSON::IElement> > Helpers::getThunderControllerClient(std::string callsign)
 {
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-    std::shared_ptr<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> > thunderClient = make_shared<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> >(callsign.c_str(), "",false);
+    std::shared_ptr<Thunder::JSONRPC::LinkType<Thunder::Core::JSON::IElement> > thunderClient = make_shared<Thunder::JSONRPC::LinkType<Thunder::Core::JSON::IElement> >(callsign.c_str(), "",false);
 
     return thunderClient;
 }

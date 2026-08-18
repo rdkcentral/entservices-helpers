@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include "utils.h"
 
-namespace WPEFramework {
+namespace Thunder {
 
     namespace Plugin {
 
@@ -65,7 +65,7 @@ namespace WPEFramework {
                     auto handler = m_versionHandlers.find(ver);
                     if(handler != m_versionHandlers.end())
                     {
-                        handler->second->Register<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer, METHOD, REALOBJECT>(methodName, method, objectPtr);
+                        handler->second->Register<Thunder::Core::JSON::VariantContainer, Thunder::Core::JSON::VariantContainer, METHOD, REALOBJECT>(methodName, method, objectPtr);
 			            m_versionAPIs[ver].push_back(methodName);
 		            }
                 }
@@ -170,9 +170,9 @@ namespace WPEFramework {
             }
 #endif
         private:
-            std::unordered_map<uint8_t, WPEFramework::Core::JSONRPC::Handler*> m_versionHandlers;
+            std::unordered_map<uint8_t, Thunder::Core::JSONRPC::Handler*> m_versionHandlers;
             std::unordered_map<uint8_t, std::vector<std::string>> m_versionAPIs;
             uint8_t m_currVersion; // current supported version
         };
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

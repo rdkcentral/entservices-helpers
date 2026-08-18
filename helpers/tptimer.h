@@ -23,7 +23,7 @@
 //#include <core/Timer.h>
 #include <plugins/plugins.h>
 
-namespace WPEFramework {
+namespace Thunder {
 
 namespace Plugin {
     class TpTimer {
@@ -127,7 +127,7 @@ namespace Plugin {
             }
         }
 
-        WPEFramework::Core::TimerType<TpTimerJob> baseTimer;
+        Thunder::Core::TimerType<TpTimerJob> baseTimer;
         TpTimerJob m_timerJob;
         bool m_isActive;
         bool m_isSingleShot;

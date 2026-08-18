@@ -29,8 +29,8 @@ cmake_minimum_required(VERSION 3.3)
 #
 # All .h files (including subdirectories) are installed as public headers so
 # downstream repos can use:
-#   find_package(WPEFrameworkHelpers REQUIRED)
-#   target_link_libraries(myPlugin PRIVATE WPEFramework::WPEFrameworkHelpers)
+#   find_package(ThunderHelpers REQUIRED)
+#   target_link_libraries(myPlugin PRIVATE Thunder::ThunderHelpers)
 
 set(PLUGIN_NAME Helpers)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
@@ -117,7 +117,7 @@ install(EXPORT ${MODULE_NAME}Targets
     NAMESPACE   ${NAMESPACE}::
     DESTINATION lib/cmake/${MODULE_NAME})
 
-# ---- Generate WPEFrameworkHelpersConfig.cmake --------------------------------
+# ---- Generate ThunderHelpersConfig.cmake --------------------------------
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
     "include(\"\${CMAKE_CURRENT_LIST_DIR}/${MODULE_NAME}Targets.cmake\")\n")
 

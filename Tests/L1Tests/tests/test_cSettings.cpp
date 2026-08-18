@@ -23,7 +23,7 @@
  * L1 unit tests for the cSettings helper class (helpers/cSettings.h).
  *
  * cSettings wraps a flat key=value configuration file and exposes in-memory
- * read/write operations backed by WPEFramework JsonObject.
+ * read/write operations backed by Thunder JsonObject.
  *
  * Test coverage goals
  * -------------------
@@ -48,7 +48,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "Module.h"    /* WPEFramework core/plugins */
+#include "Module.h"    /* Thunder core/plugins */
 #include "cSettings.h"
 #include "UtilsLogging.h"
 #include "WrapsMock.h"
@@ -63,7 +63,7 @@
  * forward mock calls to the actual syscall. */
 extern "C" int __real_unlink(const char* path);
 
-using namespace WPEFramework;
+using namespace Thunder;
 using ::testing::NiceMock;
 using ::testing::Invoke;
 using ::testing::_;
@@ -207,7 +207,7 @@ TEST_F(cSettingsTest, GetValueNonExistentKeyReturnsNullString)
 
     std::string val = s.getValue("no_such_key").String();
     /*
-     * WPEFramework JsonObject returns "null" (as string) for an EMPTY variant
+     * Thunder JsonObject returns "null" (as string) for an EMPTY variant
      * (see test_JSON.cpp::JSONTest::EMPTY).
      */
     EXPECT_EQ(std::string("null"), val);
@@ -309,7 +309,7 @@ TEST_F(cSettingsTest, SetValueEmptyStringNotWrittenToFile)
     cSettings s(tmpFile);
     /*
      * We cannot assert the file behaviour for empty-string values because
-     * WPEFramework JsonObject may or may not serialise them depending on the
+     * Thunder JsonObject may or may not serialise them depending on the
      * internal variant type. What we CAN assert: no crash, and contains()=false
      * (the implementation checks .String().empty() in contains()).
      */
@@ -593,7 +593,7 @@ TEST_F(cSettingsTest, WriteToFileSkipsEmptyStringValues)
     s.setValue("nonempty", std::string("hello"));
     /*
      * NOTE: setValue("empty", "") stores an empty string in the JsonObject.
-     * Whether writeToFile omits it depends on how WPEFramework JsonObject
+     * Whether writeToFile omits it depends on how Thunder JsonObject
      * serialises a string variant whose value is "".
      * We only assert what the implementation guarantees: the non-empty key IS written.
      */

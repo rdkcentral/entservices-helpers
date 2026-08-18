@@ -24,7 +24,7 @@
 
 #include "UtilsLogging.h"
 
-namespace WPEFramework {
+namespace Thunder {
 namespace PluginHost {
     class IShell;
 }
@@ -100,7 +100,7 @@ namespace Plugin {
     template <typename INTERFACE>
     INTERFACE* createInterface(PluginInterfaceBuilder<INTERFACE>& builder)
     {
-        WPEFramework::PluginHost::IShell* controller = builder.controller();
+        Thunder::PluginHost::IShell* controller = builder.controller();
         const std::string& callsign = builder.callSign();
         const int retryCount = builder.retryCount();
         const uint32_t retryInterval = builder.retryInterval();
@@ -189,7 +189,7 @@ namespace Plugin {
 
         PluginInterfaceRef<INTERFACE> createInterface()
         {
-            auto* interface = ::WPEFramework::Plugin::createInterface<INTERFACE>(*this);
+            auto* interface = ::Thunder::Plugin::createInterface<INTERFACE>(*this);
 
             if (!interface) {
                 LOGERR("Failed to create plugin interface for %s", _callsign.c_str());
@@ -218,11 +218,11 @@ namespace Plugin {
             return _callsign;
         }
 
-        WPEFramework::PluginHost::IShell* controller()
+        Thunder::PluginHost::IShell* controller()
         {
             return _service;
         }
     };
 
 } // Plugin
-} // WPEFramework
+} // Thunder

@@ -23,10 +23,10 @@
  * L1 unit tests for helpers/PluginInterfaceBuilder.h
  *
  * Classes under test:
- *   WPEFramework::Plugin::PluginInterfaceRef<T>   — RAII wrapper for an acquired interface ptr
- *   WPEFramework::Plugin::PluginInterfaceBuilder<T> — fluent builder for acquiring a plugin interface
- *   WPEFramework::Plugin::createInterface<T>()    — free-function that does the retry loop
- *   WPEFramework::Plugin::make_unique<T>()        — helper make_unique (C++11 backport)
+ *   Thunder::Plugin::PluginInterfaceRef<T>   — RAII wrapper for an acquired interface ptr
+ *   Thunder::Plugin::PluginInterfaceBuilder<T> — fluent builder for acquiring a plugin interface
+ *   Thunder::Plugin::createInterface<T>()    — free-function that does the retry loop
+ *   Thunder::Plugin::make_unique<T>()        — helper make_unique (C++11 backport)
  *
  * Coverage goals
  * --------------
@@ -80,8 +80,8 @@
 #include <memory>
 #include <string>
 
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using ::testing::_;
 using ::testing::Return;
 using ::testing::NiceMock;
@@ -98,7 +98,7 @@ using ::testing::NiceMock;
  * Instead we derive directly from Core::IUnknown, which is the only
  * real requirement of PluginInterfaceRef<T> (it calls T::Release()).
  * ============================================================ */
-class TestIfaceImpl : public WPEFramework::Core::IUnknown {
+class TestIfaceImpl : public Thunder::Core::IUnknown {
     mutable uint32_t _refCount { 1 };
 
 public:
@@ -634,7 +634,7 @@ struct SimpleObj {
 TEST_F(MakeUniqueTest, CreatesObjectWithCorrectValue)
 {
     LOGINFO("Test: Plugin::make_unique creates object with correct constructor arg");
-    auto ptr = WPEFramework::Plugin::make_unique<SimpleObj>(42);
+    auto ptr = Thunder::Plugin::make_unique<SimpleObj>(42);
 
     ASSERT_NE(nullptr, ptr.get());
     EXPECT_EQ(42, ptr->value);
@@ -644,7 +644,7 @@ TEST_F(MakeUniqueTest, OwnershipManagedByUniquePtr)
 {
     LOGINFO("Test: object is destroyed when unique_ptr goes out of scope");
     {
-        auto ptr = WPEFramework::Plugin::make_unique<SimpleObj>(99);
+        auto ptr = Thunder::Plugin::make_unique<SimpleObj>(99);
         ASSERT_NE(nullptr, ptr.get());
     }
     /* no crash, no leak (verified by valgrind) */
@@ -654,7 +654,7 @@ TEST_F(MakeUniqueTest, OwnershipManagedByUniquePtr)
 TEST_F(MakeUniqueTest, MoveTransfersOwnership)
 {
     LOGINFO("Test: unique_ptr from make_unique can be moved");
-    auto ptr1 = WPEFramework::Plugin::make_unique<SimpleObj>(7);
+    auto ptr1 = Thunder::Plugin::make_unique<SimpleObj>(7);
     auto ptr2 = std::move(ptr1);
 
     /* coverity[use_after_move] */
@@ -671,7 +671,7 @@ TEST_F(MakeUniqueTest, MultipleArgsForwarded)
         Multi(int x, std::string y) : a(x), b(std::move(y)) {}
     };
 
-    auto ptr = WPEFramework::Plugin::make_unique<Multi>(3, std::string("hello"));
+    auto ptr = Thunder::Plugin::make_unique<Multi>(3, std::string("hello"));
 
     ASSERT_NE(nullptr, ptr.get());
     EXPECT_EQ(3,              ptr->a);
@@ -691,7 +691,7 @@ TEST_F(CreateInterfaceFreeTest, NullControllerReturnsNullptr)
     PluginInterfaceBuilder<TestIfaceImpl> builder("X");
     /* controller not set */
 
-    TestIfaceImpl* result = WPEFramework::Plugin::createInterface<TestIfaceImpl>(builder);
+    TestIfaceImpl* result = Thunder::Plugin::createInterface<TestIfaceImpl>(builder);
 
     EXPECT_EQ(nullptr, result);
 }
@@ -710,7 +710,7 @@ TEST_F(CreateInterfaceFreeTest, ValidControllerSuccessFirstCall)
     PluginInterfaceBuilder<TestIfaceImpl> builder("Direct");
     builder.withIShell(&shell).withRetryCount(2).withRetryIntervalMS(0);
 
-    TestIfaceImpl* result = WPEFramework::Plugin::createInterface<TestIfaceImpl>(builder);
+    TestIfaceImpl* result = Thunder::Plugin::createInterface<TestIfaceImpl>(builder);
 
     EXPECT_NE(nullptr, result);
     result->Release(); /* release the ref returned by createInterface */
@@ -729,7 +729,7 @@ TEST_F(CreateInterfaceFreeTest, ExhaustedRetriesReturnsNullptr)
     PluginInterfaceBuilder<TestIfaceImpl> builder("Fail");
     builder.withIShell(&shell).withRetryCount(2).withRetryIntervalMS(0);
 
-    TestIfaceImpl* result = WPEFramework::Plugin::createInterface<TestIfaceImpl>(builder);
+    TestIfaceImpl* result = Thunder::Plugin::createInterface<TestIfaceImpl>(builder);
 
     EXPECT_EQ(nullptr, result);
 }

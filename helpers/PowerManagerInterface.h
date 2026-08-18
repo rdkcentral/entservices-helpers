@@ -39,5 +39,5 @@
 #define SECMANAGER_PWRMGR_RETRY_COUNT              PWRMGR_RETRY_COUNT_CPC
 #define DEVICEPROVISIONING_PWRMGR_RETRY_COUNT      PWRMGR_RETRY_COUNT_CPC
 
-using PowerManagerInterfaceBuilder = WPEFramework::Plugin::PluginInterfaceBuilder<WPEFramework::Exchange::IPowerManager>;
-using PowerManagerInterfaceRef = WPEFramework::Plugin::PluginInterfaceRef<WPEFramework::Exchange::IPowerManager>;
+using PowerManagerInterfaceBuilder = Thunder::Plugin::PluginInterfaceBuilder<Thunder::Exchange::IPowerManager>;
+using PowerManagerInterfaceRef = Thunder::Plugin::PluginInterfaceRef<Thunder::Exchange::IPowerManager>;

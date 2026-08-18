@@ -123,7 +123,7 @@ TEST(SearchDeviceNameTest, SetsEmptyStringWhenDevicePropertiesMissing)
 // ===========================================================================
 // ReadJsonFileForKey()
 // Logic : opens filePath, reads full file content into a string,
-//         parses it with WPEFramework JsonObject::FromString(),
+//         parses it with Thunder JsonObject::FromString(),
 //         if key exists and its string value is non-empty -> sets value,
 //         returns true; otherwise returns false
 // Uses real temporary files — no mocks required.
