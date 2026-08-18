@@ -30,7 +30,7 @@
 #include <fstream>
 #include <string>
 
-using namespace WPEFramework;
+using namespace Thunder;
 
 using ::testing::_;
 using ::testing::Invoke;

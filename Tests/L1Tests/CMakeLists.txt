@@ -34,7 +34,7 @@ set (TEST_LIB
 )
 find_package(CURL REQUIRED)
 
-# Headers are provided transitively by the installed WPEFrameworkHelpers target
+# Headers are provided transitively by the installed ThunderHelpers target
 set (TEST_INC)
 
 #########################################################################################
@@ -104,7 +104,7 @@ macro(add_plugin_test plugin_name test_files)
     add_plugin_test_ex(${plugin_opt} "${test_files}" "../../${plugin_name}" "${NAMESPACE}${plugin_name}")
 endmacro()
 
-# PLUGIN_HELPERS — library under test is WPEFrameworkHelpers (already linked via TEST_LIB)
+# PLUGIN_HELPERS — library under test is ThunderHelpers (already linked via TEST_LIB)
 # Source-tree -I flags are not needed: headers come from the installed target
 set (HELPERS_INC)
 set (HELPERS_LIBS ${NAMESPACE}Helpers)
@@ -129,7 +129,7 @@ add_library(${MODULE_NAME} SHARED ${TEST_SRC})
 
 include_directories(${TEST_INC})
 
-target_link_directories(${MODULE_NAME} PUBLIC ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib/wpeframework/plugins)
+target_link_directories(${MODULE_NAME} PUBLIC ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib/Thunder/plugins)
 
 target_link_libraries(${MODULE_NAME} ${TEST_LIB} CURL::libcurl)
 

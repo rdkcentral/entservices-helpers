@@ -25,7 +25,7 @@
  * Functions under test:
  *
  *   Utils::MoveFile(const string& from, const string& to) -> bool
- *     Uses WPEFramework::Core::File / Directory to copy bytes and then
+ *     Uses Thunder::Core::File / Directory to copy bytes and then
  *     destroy the source. Returns false if:
  *       - source does not exist
  *       - destination already exists
@@ -38,7 +38,7 @@
  *
  * Wrapped syscall notes:
  *   Only ::unlink() is intercepted in the helpers test build.
- *   WPEFramework::Core::File::Destroy() calls its own internal unlink
+ *   Thunder::Core::File::Destroy() calls its own internal unlink
  *   through libc (NOT wrapped), so it works normally.
  *   Our fixture calls ::unlink() for cleanup → must route through
  *   WrapsImplMock → __real_unlink.
