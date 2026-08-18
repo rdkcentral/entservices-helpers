@@ -287,8 +287,8 @@ void Helpers::activatePlugin(const char* callSign)
 bool Helpers::isPluginActivated(const char* callSign)
 {
     string method = "status@" + string(callSign);
-    Core::JSON::ArrayType<PluginHost::MetaData::Service> joResult;
-    uint32_t status = getThunderControllerClient()->Get<Core::JSON::ArrayType<PluginHost::MetaData::Service> >(2000, method.c_str(),joResult);
+    Core::JSON::ArrayType<PluginHost::Metadata::Service> joResult;
+    uint32_t status = getThunderControllerClient()->Get<Core::JSON::ArrayType<PluginHost::Metadata::Service> >(2000, method.c_str(),joResult);
     bool pluginActivated = false;
     if (status == Core::ERROR_NONE)
     {
