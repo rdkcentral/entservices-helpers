@@ -465,11 +465,12 @@ struct VideoPortConfigStore {
     }
 
     inline bool ResolveByName(const std::string& requestedPort,
-                               VideoPortEntry& resolvedEntry) const
+                               VideoPortEntry& resolvedEntry,
+                               const std::string& logTag = {}) const
     {
         std::vector<VideoPortEntry> entries;
         if (!getVideoPortEntries(entries)) {
-            LOGERR("No video port entries available to resolve '%s'", requestedPort.c_str());
+            LOGERR("%s: No video port entries available to resolve '%s'", logTag.c_str(), requestedPort.c_str());
             return false;
         }
         for (size_t i = 0; i < entries.size(); ++i) {
@@ -477,7 +478,7 @@ struct VideoPortConfigStore {
             if (EqualsIgnoreCase(e.name, requestedPort) ||
                 ((e.index == 0) && !e.typeName.empty() && EqualsIgnoreCase(e.typeName, requestedPort))) {
                 resolvedEntry = e;
-                LOGINFO("Resolved video port '%s' to type=%d index=%d", requestedPort.c_str(), e.type, e.index);
+                LOGINFO("%s: Resolved video port '%s' to type=%d index=%d", logTag.c_str(), requestedPort.c_str(), e.type, e.index);
                 return true;
             }
         }
@@ -705,12 +706,13 @@ struct FrontPanelConfigStore {
  */
 inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* iface,
                                            VideoPortType portType,
-                                           std::vector<VideoPortResolution>& out)
+                                           std::vector<VideoPortResolution>& out,
+                                           const std::string& logTag = {})
 {
     out.clear();
 
     if (iface == nullptr) {
-        LOGERR("%s: iface is null", _logTag.c_str());
+        LOGERR("%s: iface is null", logTag.c_str());
         return false;
     }
 
@@ -718,7 +720,7 @@ inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* if
     const uint32_t result = iface->GetVideoPortResolutionConfig(portType, resIt);
     if (result != Core::ERROR_NONE) {
         LOGERR("%s: GetVideoPortResolutionConfig failed for type=%d: %u",
-               _logTag.c_str(), static_cast<int>(portType), result);
+               logTag.c_str(), static_cast<int>(portType), result);
         if (resIt) resIt->Release();
         return false;
     }
@@ -732,7 +734,7 @@ inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* if
     }
 
     LOGINFO("%s: type=%d resolutions=%zu",
-            _logTag.c_str(), static_cast<int>(portType), out.size());
+            logTag.c_str(), static_cast<int>(portType), out.size());
     return !out.empty();
 }
 
@@ -903,7 +905,7 @@ public:
     {
         auto* iface = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
         if (!iface) return false;
-        const bool ok = ::WPEFramework::Plugin::LoadVideoPortResolutionConfig(iface, portType, out);
+        const bool ok = ::WPEFramework::Plugin::LoadVideoPortResolutionConfig(iface, portType, out, _logTag);
         iface->Release();
         return ok;
     }
@@ -1216,7 +1218,7 @@ public:
 
     /** @brief Resolve a video port name or type-name string to a VideoPortEntry. */
     bool resolveVideoPortByName(const std::string& portName, VideoPortEntry& entry) const
-    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.ResolveByName(portName, entry); }
+    { _ensureConfigLoaded(); std::lock_guard<std::mutex> lock(_configMutex); return _vpConfigStore.ResolveByName(portName, entry, _logTag); }
 
     /** @brief Get the deduplicated flat resolution list across all loaded port types. */
     std::vector<VideoPortResolution> getVideoPortResolutions() const
