@@ -710,15 +710,15 @@ inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* if
     out.clear();
 
     if (iface == nullptr) {
-        LOGERR("LoadVideoPortResolutionConfig: iface is null");
+        LOGERR("%s: iface is null", _logTag.c_str());
         return false;
     }
 
     IVideoPortResolutionIterator* resIt = nullptr;
     const uint32_t result = iface->GetVideoPortResolutionConfig(portType, resIt);
     if (result != Core::ERROR_NONE) {
-        LOGERR("LoadVideoPortResolutionConfig: GetVideoPortResolutionConfig failed for type=%d: %u",
-               static_cast<int>(portType), result);
+        LOGERR("%s: GetVideoPortResolutionConfig failed for type=%d: %u",
+               _logTag.c_str(), static_cast<int>(portType), result);
         if (resIt) resIt->Release();
         return false;
     }
@@ -731,8 +731,8 @@ inline bool LoadVideoPortResolutionConfig(Exchange::IDeviceSettingsVideoPort* if
         resIt->Release();
     }
 
-    LOGINFO("LoadVideoPortResolutionConfig: type=%d resolutions=%zu",
-            static_cast<int>(portType), out.size());
+    LOGINFO("%s: type=%d resolutions=%zu",
+            _logTag.c_str(), static_cast<int>(portType), out.size());
     return !out.empty();
 }
 
@@ -760,6 +760,8 @@ public:
     DSHelper()
         : _service(nullptr)
         , _callsign(kDefaultCallsign)
+        , _clientName()
+        , _logTag("DSHelper[UNK]")
     {
     }
 
@@ -780,32 +782,37 @@ public:
      * synchronously inside Open() so OnDeviceSettingsActivated() may be
      * called before Open() returns.
      *
-     * @param service   IShell* provided to Configure()
-     * @param callsign  Plugin callsign (default: "org.rdk.DeviceSettings")
+     * @param service     IShell* provided to Configure()
+     * @param clientName  Caller plugin name used as log prefix (e.g. "DisplaySettings")
+     * @param callsign    Plugin callsign (default: "org.rdk.DeviceSettings")
      */
-    uint32_t Open(PluginHost::IShell* service, const string& callsign = kDefaultCallsign)
+    uint32_t Open(PluginHost::IShell* service, const string& clientName = {}, const string& callsign = kDefaultCallsign)
     {
         if (service == nullptr) {
-            LOGERR("DSHelper::Open() failed: service is nullptr");
+            _logTag = "DSHelper[" + (clientName.empty() ? string("UNK") : clientName) + "]";
+            LOGERR("%s: service is nullptr, callsign=%s", _logTag.c_str(), callsign.c_str());
             return Core::ERROR_BAD_REQUEST;
         }
         if (_service != nullptr) {
-            LOGERR("DSHelper::Open(%s) called while already open", callsign.c_str());
+            LOGERR("%s: already open, callsign=%s", _logTag.c_str(), callsign.c_str());
             return Core::ERROR_GENERAL;
         }
-        _service  = service;
+        _clientName = clientName;
+        _callsign   = callsign;
+        _logTag     = "DSHelper[" + (clientName.empty() ? string("UNK") : clientName) + "]";
+        _service    = service;
         _service->AddRef();
-        _callsign = callsign;
 
         const uint32_t result = BaseClass::Open(_service, callsign);
         if (result != Core::ERROR_NONE) {
-            LOGERR("DSHelper::Open(%s) failed: %u",
-                   callsign.c_str(), result);
+            LOGERR("%s: Open failed: %u", _logTag.c_str(), result);
             _service->Release();
-            _service = nullptr;
-            _callsign = kDefaultCallsign;
+            _service    = nullptr;
+            _callsign   = kDefaultCallsign;
+            _clientName = {};
+            _logTag     = "DSHelper[UNK]";
         } else {
-            LOGINFO("DSHelper::Open(%s) succeeded", callsign.c_str());
+            LOGINFO("%s: Open succeeded", _logTag.c_str());
         }
         return result;
     }
@@ -819,10 +826,12 @@ public:
     void Close()
     {
         if (_service != nullptr) {
-            LOGINFO("DSHelper::Close(%s)", _callsign.c_str());
+            LOGINFO("%s: Close", _logTag.c_str());
             BaseClass::Close();
             _service->Release();
-            _service = nullptr;
+            _service    = nullptr;
+            _clientName = {};
+            _logTag     = "DSHelper[UNK]";
         }
     }
 
@@ -851,15 +860,14 @@ public:
     {
         Exchange::IDeviceSettings* root = BaseClass::Interface();
         if (root == nullptr) {
-            LOGERR("DSHelper[%s]: IDeviceSettings root not available",
-                   _callsign.c_str());
+            LOGERR("%s: IDeviceSettings root not available", _logTag.c_str());
             return nullptr;
         }
         SUBINTERFACE* sub = root->QueryInterface<SUBINTERFACE>();
         root->Release();   // root reference balanced — sub has its own AddRef from QI
         if (sub == nullptr) {
-            LOGERR("DSHelper[%s]: QueryInterface<0x%08x> returned nullptr",
-                   _callsign.c_str(), static_cast<uint32_t>(SUBINTERFACE::ID));
+            LOGERR("%s: QueryInterface<0x%08x> returned nullptr",
+                   _logTag.c_str(), static_cast<uint32_t>(SUBINTERFACE::ID));
         }
         return sub;
     }
@@ -918,7 +926,7 @@ public:
         // Phase 1: COM-RPC — retrieve consolidated config (no lock held)
         Exchange::IDeviceSettings* root = BaseClass::Interface();
         if (root == nullptr) {
-            LOGERR("ReloadAudioConfigs: IDeviceSettings root not available");
+            LOGERR("%s: IDeviceSettings root not available", _logTag.c_str());
             return false;
         }
 
@@ -926,7 +934,7 @@ public:
         const Core::hresult rc = root->GetDeviceSettingConfigs(rawCfg);
         root->Release();
         if (rc != Core::ERROR_NONE) {
-            LOGERR("ReloadAudioConfigs: GetDeviceSettingConfigs failed: %u", rc);
+            LOGERR("%s: GetDeviceSettingConfigs failed: %u", _logTag.c_str(), rc);
             return false;
         }
 
@@ -942,7 +950,7 @@ public:
         }
 
         if (newAudio.IsEmpty()) {
-            LOGERR("ReloadAudioConfigs: received empty audio config — not overwriting existing stores");
+            LOGERR("%s: received empty audio config — not overwriting existing stores", _logTag.c_str());
             return false;
         }
 
@@ -958,9 +966,9 @@ public:
                         Core::hresult hrc = audio->GetAudioPort(e.type, e.index, handle);
                         if (hrc == Core::ERROR_NONE) {
                             newAudioHandles[e.name] = handle;
-                            LOGINFO("ReloadAudioConfigs: AudioPort '%s' -> handle=%d", e.name.c_str(), handle);
+                            LOGINFO("%s: AudioPort '%s' -> handle=%d", _logTag.c_str(), e.name.c_str(), handle);
                         } else {
-                            LOGERR("ReloadAudioConfigs: GetAudioPort '%s' failed: %u", e.name.c_str(), hrc);
+                            LOGERR("%s: GetAudioPort '%s' failed: %u", _logTag.c_str(), e.name.c_str(), hrc);
                         }
                     }
                 }
@@ -969,7 +977,7 @@ public:
         }
 
         if (newAudioHandles.empty()) {
-            LOGERR("ReloadAudioConfigs: no audio port handles acquired — not overwriting existing handles");
+            LOGERR("%s: no audio port handles acquired — not overwriting existing handles", _logTag.c_str());
             return false;
         }
 
@@ -981,7 +989,7 @@ public:
             // _configLoaded intentionally NOT modified — video/FPD/VD data remains valid
         }
 
-        LOGINFO("ReloadAudioConfigs: completed — audioTypes=%zu audioPorts=%zu handles=%zu",
+        LOGINFO("%s: completed — audioTypes=%zu audioPorts=%zu handles=%zu", _logTag.c_str(),
                 _audioConfigStore.typeConfigs.size(),
                 _audioConfigStore.portConfigs.size(),
                 _audioPortHandles.size());
@@ -1016,7 +1024,7 @@ private:
         // ── Phase 1: COM-RPC — retrieve all static config (no lock held) ────────
         Exchange::IDeviceSettings* root = BaseClass::Interface();
         if (root == nullptr) {
-            LOGERR("LoadAllConfigs: IDeviceSettings root not available");
+            LOGERR("%s: IDeviceSettings root not available", _logTag.c_str());
             return false;
         }
 
@@ -1027,7 +1035,7 @@ private:
         const int64_t msGetConfig = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - tGetConfig).count();
         if (rc != Core::ERROR_NONE) {
-            LOGERR("LoadAllConfigs: GetDeviceSettingConfigs failed: %u", rc);
+            LOGERR("%s: GetDeviceSettingConfigs failed: %u", _logTag.c_str(), rc);
             return false;
         }
 
@@ -1104,8 +1112,8 @@ private:
                     for (const VideoPortEntry& e : entries) {
                         int32_t handle = INVALID_DS_HANDLE;
                         Core::hresult hrc = vp->GetVideoPort(e.type, e.index, handle);
-                        if (hrc == Core::ERROR_NONE) { newVpHandles[e.name] = handle; LOGINFO("LoadAllConfigs: VideoPort '%s' -> handle=%d", e.name.c_str(), handle); }
-                        else { LOGERR("LoadAllConfigs: GetVideoPort '%s' failed: %u", e.name.c_str(), hrc); }
+                        if (hrc == Core::ERROR_NONE) { newVpHandles[e.name] = handle; LOGINFO("%s: VideoPort '%s' -> handle=%d", _logTag.c_str(), e.name.c_str(), handle); }
+                        else { LOGERR("%s: GetVideoPort '%s' failed: %u", _logTag.c_str(), e.name.c_str(), hrc); }
                     }
                 }
                 vp->Release();
@@ -1119,8 +1127,8 @@ private:
                     for (const AudioPortEntry& e : entries) {
                         int32_t handle = INVALID_DS_HANDLE;
                         Core::hresult hrc = audio->GetAudioPort(e.type, e.index, handle);
-                        if (hrc == Core::ERROR_NONE) { newAudioHandles[e.name] = handle; LOGINFO("LoadAllConfigs: AudioPort '%s' -> handle=%d", e.name.c_str(), handle); }
-                        else { LOGERR("LoadAllConfigs: GetAudioPort '%s' failed: %u", e.name.c_str(), hrc); }
+                        if (hrc == Core::ERROR_NONE) { newAudioHandles[e.name] = handle; LOGINFO("%s: AudioPort '%s' -> handle=%d", _logTag.c_str(), e.name.c_str(), handle); }
+                        else { LOGERR("%s: GetAudioPort '%s' failed: %u", _logTag.c_str(), e.name.c_str(), hrc); }
                     }
                 }
                 audio->Release();
@@ -1134,8 +1142,8 @@ private:
                 for (size_t i = 0; i < count; ++i) {
                     int32_t handle = INVALID_DS_HANDLE;
                     Core::hresult hrc = vd->GetVideoDeviceHandle(static_cast<int32_t>(i), handle);
-                    if (hrc == Core::ERROR_NONE) { newVdHandles[i] = handle; LOGINFO("LoadAllConfigs: device[%zu] handle=%d", i, handle); }
-                    else { LOGERR("LoadAllConfigs: GetVideoDeviceHandle(%zu) failed: %u", i, hrc); }
+                    if (hrc == Core::ERROR_NONE) { newVdHandles[i] = handle; LOGINFO("%s: device[%zu] handle=%d", _logTag.c_str(), i, handle); }
+                    else { LOGERR("%s: GetVideoDeviceHandle(%zu) failed: %u", _logTag.c_str(), i, hrc); }
                 }
                 vd->Release();
             }
@@ -1154,11 +1162,11 @@ private:
             _configLoaded.store(true, std::memory_order_release);
         }
 
-        LOGINFO("LoadAllConfigs: getConfig=%" PRId64 "ms stores=%" PRId64 "ms handles=%" PRId64 "ms total=%" PRId64 "ms | "
+        LOGINFO("%s: getConfig=%" PRId64 "ms stores=%" PRId64 "ms handles=%" PRId64 "ms total=%" PRId64 "ms | "
                 "videoPortTypes=%zu videoPorts=%zu videoPortResolutions=%zu "
                 "audioTypes=%zu audioPorts=%zu videoConfigs=%zu "
                 "indicators=%zu colors=%zu textDisplays=%zu colorBindings=%zu",
-            msGetConfig, msStores,
+            _logTag.c_str(), msGetConfig, msStores,
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - tHandles).count(),
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1330,7 +1338,7 @@ public:
         if (it != _audioPortHandles.end()) {
             return it->second;
         }
-        LOGERR("getCachedAudioPortHandle: audioPort '%s' not found in handles map",
+        LOGERR("%s: audioPort '%s' not found in handles map", _logTag.c_str(),
                audioPortName.c_str());
         return INVALID_DS_HANDLE;
     }
@@ -1349,7 +1357,7 @@ public:
         if (it != _videoPortHandles.end()) {
             return it->second;
         }
-        LOGERR("getCachedVideoPortHandle: videoPort '%s' not found in handles map",
+        LOGERR("%s: videoPort '%s' not found in handles map", _logTag.c_str(),
                videoPortName.c_str());
         return INVALID_DS_HANDLE;
     }
@@ -1368,7 +1376,7 @@ public:
         if (it != _displayHandles.end()) {
             return it->second;
         }
-        LOGERR("getCachedDisplayHandle: displayPort '%s' not found in handles map",
+        LOGERR("%s: displayPort '%s' not found in handles map", _logTag.c_str(),
                portName.c_str());
         return INVALID_DS_HANDLE;
     }
@@ -1387,13 +1395,13 @@ public:
         _ensureConfigLoaded();
         std::lock_guard<std::mutex> lock(_configMutex);
         if (index < 0 || static_cast<size_t>(index) >= _videoDeviceHandles.size()) {
-            LOGERR("getCachedVideoDeviceHandle: index %d out of range (count=%zu)",
+            LOGERR("%s: video device index %d out of range (count=%zu)", _logTag.c_str(),
                    index, _videoDeviceHandles.size());
             return INVALID_DS_HANDLE;
         }
         const int32_t handle = _videoDeviceHandles[static_cast<size_t>(index)];
         if (INVALID_DS_HANDLE == handle) {
-            LOGERR("getCachedVideoDeviceHandle: handle for index %d not yet acquired", index);
+            LOGERR("%s: video device handle for index %d not yet acquired", _logTag.c_str(), index);
         }
         return handle;
     }
@@ -1495,7 +1503,7 @@ public:
             std::lock_guard<std::mutex> lock(_configMutex);
             const auto audioIt = _audioPortHandles.find(portName);
             if (audioIt == _audioPortHandles.end()) {
-                LOGERR("getCachedAudioPortHandle: audioPort '%s' not found in handles map", portName.c_str());
+                LOGERR("%s: audioPort '%s' not found in handles map", _logTag.c_str(), portName.c_str());
                 portHandle = INVALID_DS_HANDLE;
                 return false;
             }
@@ -1514,10 +1522,10 @@ public:
                     bool connected = false;
                     comResult = vp->IsVideoPortDisplayConnected(vpHandle, connected);
                     if (comResult != Core::ERROR_NONE) {
-                        LOGERR("IsVideoPortDisplayConnected failed for '%s': %u",portName.c_str(), comResult);
+                        LOGERR("%s: IsVideoPortDisplayConnected failed for '%s': %u", _logTag.c_str(), portName.c_str(), comResult);
                     }
                     else {
-                        LOGINFO("IsVideoPortDisplayConnected('%s') returned %d", portName.c_str(), connected);
+                        LOGINFO("%s: IsVideoPortDisplayConnected('%s') returned %d", _logTag.c_str(), portName.c_str(), connected);
                     }
                     vp->Release();
                     return connected;
@@ -1535,7 +1543,7 @@ public:
             {
                 comResult = audio->GetAudioHDMIARCPortId(portHandle, arcPortId);
                 if (comResult != Core::ERROR_NONE && arcPortId < 0 ) {
-                    LOGERR("GetAudioHDMIARCPortId failed for '%s' ArcPortId: %d, Error: %u", portName.c_str(), arcPortId, comResult);
+                    LOGERR("%s: GetAudioHDMIARCPortId failed for '%s' ArcPortId: %d, Error: %u", _logTag.c_str(), portName.c_str(), arcPortId, comResult);
                     return false;
                 }
                 auto* hdmiIn = AcquireSubInterface<Exchange::IDeviceSettingsHDMIIn>();
@@ -1550,7 +1558,7 @@ public:
                         while (portIt->Next(portStatus)) {
                             if (idx == arcPortId) {
                                 connected = portStatus.isPortConnected;
-                                LOGINFO("GetHDMIInStatus('%s') portId=%d isPortConnected=%d", portName.c_str(), arcPortId, connected);
+                                LOGINFO("%s: GetHDMIInStatus('%s') portId=%d isPortConnected=%d", _logTag.c_str(), portName.c_str(), arcPortId, connected);
                                 break;
                             }
                             ++idx;
@@ -1558,17 +1566,17 @@ public:
                         portIt->Release();
                     }
                     else {
-                        LOGERR("GetHDMIInStatus failed for '%s': %u", portName.c_str(), comResult);
+                        LOGERR("%s: GetHDMIInStatus failed for '%s': %u", _logTag.c_str(), portName.c_str(), comResult);
                     }
                     hdmiIn->Release();
                     return connected;
                 }
                 else {
-                    LOGERR("IDeviceSettingsHDMIIn interface is null for '%s'", portName.c_str());
+                    LOGERR("%s: IDeviceSettingsHDMIIn interface is null for '%s'", _logTag.c_str(), portName.c_str());
                 }
             }
             else {
-                LOGERR("Audio interface is null for '%s'", portName.c_str());
+                LOGERR("%s: Audio interface is null for '%s'", _logTag.c_str(), portName.c_str());
             }
             return false;
         } else if (portName.find("HEADPHONE") != std::string::npos) {
@@ -1576,20 +1584,20 @@ public:
             // COM-RPC: IsAudioOutputConnected
             bool connected = false;
             if (audio == nullptr) {
-                LOGERR("Audio interface is null for '%s'", portName.c_str());
+                LOGERR("%s: Audio interface is null for '%s'", _logTag.c_str(), portName.c_str());
             }
             else {
                 comResult = audio->IsAudioOutputConnected(portHandle, connected);
                 if (comResult != Core::ERROR_NONE) {
-                    LOGERR("IsAudioOutputConnected failed for '%s': %u", portName.c_str(), comResult);
+                    LOGERR("%s: IsAudioOutputConnected failed for '%s': %u", _logTag.c_str(), portName.c_str(), comResult);
                 }
                 else {
-                    LOGINFO("IsAudioOutputConnected('%s') returned %d", portName.c_str(), connected);
+                    LOGINFO("%s: IsAudioOutputConnected('%s') returned %d", _logTag.c_str(), portName.c_str(), connected);
                 }
             }
             return connected;
         } else {
-            LOGINFO("'%s' is not HDMI, HDMI_ARC, or HEADPHONE — assuming connected", portName.c_str());
+            LOGINFO("%s: '%s' is not HDMI, HDMI_ARC, or HEADPHONE — assuming connected", _logTag.c_str(), portName.c_str());
             // SPDIF, SPEAKER, LR/IDLR -- always connected (DS_IARM else branch returns true)
             return true;
         }
@@ -1637,7 +1645,7 @@ private:
     void Operational(const bool upAndRunning) override final
     {
         if (upAndRunning) {
-            LOGINFO("DSHelper[%s]: DeviceSettings activated — invalidating stale config", _callsign.c_str());
+            LOGINFO("%s: DeviceSettings activated — invalidating stale config", _logTag.c_str());
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
                 _configLoaded.store(false, std::memory_order_release);
@@ -1650,7 +1658,7 @@ private:
             // Client plugins must NOT call LoadAllConfigs() — it is an internal helper only.
             OnDeviceSettingsActivated();
         } else {
-            LOGINFO("DSHelper[%s]: DeviceSettings deactivated — clearing config and handles", _callsign.c_str());
+            LOGINFO("%s: DeviceSettings deactivated — clearing config and handles", _logTag.c_str());
             OnDeviceSettingsDeactivated();
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
@@ -1704,19 +1712,19 @@ private:
         std::lock_guard<std::mutex> initLock(_initMutex);
         // Double-check: a previous waiter may have already completed the load
         if (!_configLoaded.load(std::memory_order_relaxed)) {
-            LOGINFO("DSHelper[%s]: config not yet loaded — triggering LoadAllConfigs()",
-                    _callsign.c_str());
+            LOGINFO("%s: config not yet loaded — triggering LoadAllConfigs()", _logTag.c_str());
             const bool ok = const_cast<DSHelper*>(this)->LoadAllConfigs();
             if (!ok) {
                 // _configLoaded remains false — next accessor call will retry
-                LOGERR("DSHelper[%s]: LoadAllConfigs() failed — config remains unloaded",
-                       _callsign.c_str());
+                LOGERR("%s: LoadAllConfigs() failed — config remains unloaded", _logTag.c_str());
             }
         }
     }
 
     PluginHost::IShell* _service;
     string              _callsign;
+    string              _clientName;
+    string              _logTag;
 };
 
 } // namespace Plugin
