@@ -892,6 +892,8 @@ public:
             return nullptr;
         }
 
+        LOGINFO("%s: QueryInterface<0x%08x> succeeded, caching", _logTag.c_str(), id);
+
         // Store under lock; if another thread raced and already cached it, discard ours.
         // base: implicit upcast SUBINTERFACE*→Core::IUnknown* is always valid.
         // typed: store as void* to avoid illegal virtual-base static_cast on retrieval.
