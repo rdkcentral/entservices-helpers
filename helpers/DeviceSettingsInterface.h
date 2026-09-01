@@ -869,14 +869,17 @@ public:
             std::lock_guard<std::mutex> lock(_subIfaceMutex);
             const auto it = _subInterfaceCache.find(id);
             if (it != _subInterfaceCache.end()) {
-                if (it->second) it->second->AddRef();
-                return static_cast<SUBINTERFACE*>(it->second);
+                // typed is the original SUBINTERFACE* stored as void* — no virtual-base downcast needed
+                SUBINTERFACE* sub = static_cast<SUBINTERFACE*>(it->second.typed);
+                if (sub) sub->AddRef();
+                return sub;
             }
         }
 
         // Slow path: first use for this type — QI without the lock so other sub-interface
         // calls on other threads are not blocked during the COM-RPC round-trip.
-        Exchange::IDeviceSettings* root = BaseClass::Interface();
+        // const_cast is safe: Interface() does not modify observable state of DSHelper.
+        Exchange::IDeviceSettings* root = const_cast<DSHelper*>(this)->BaseClass::Interface();
         if (root == nullptr) {
             LOGERR("%s: IDeviceSettings root not available", _logTag.c_str());
             return nullptr;
@@ -890,14 +893,17 @@ public:
         }
 
         // Store under lock; if another thread raced and already cached it, discard ours.
+        // base: implicit upcast SUBINTERFACE*→Core::IUnknown* is always valid.
+        // typed: store as void* to avoid illegal virtual-base static_cast on retrieval.
         {
             std::lock_guard<std::mutex> lock(_subIfaceMutex);
             auto& slot = _subInterfaceCache[id];
-            if (slot != nullptr) {
+            if (slot.typed != nullptr) {
                 fresh->Release();
-                fresh = static_cast<SUBINTERFACE*>(slot);
+                fresh = static_cast<SUBINTERFACE*>(slot.typed);
             } else {
-                slot = fresh;  // cache holds one reference; caller gets a second below
+                slot.base  = fresh;                    // upcast — always valid
+                slot.typed = static_cast<void*>(fresh); // preserve exact typed pointer
             }
             fresh->AddRef();
         }
@@ -1727,19 +1733,29 @@ private:
     // ── Sub-interface cache ───────────────────────────────────────────────────
     // Keyed by interface ID.  Populated lazily on first AcquireSubInterface<T>()
     // call per type and released at Operational(false)/Close().
-    mutable std::mutex                  _subIfaceMutex;     ///< guards _subInterfaceCache
-    mutable std::map<uint32_t, Core::IUnknown*> _subInterfaceCache; ///< one cached AddRef'd proxy per used sub-interface type
+    //
+    // Two pointers are kept per entry because Core::IUnknown is a VIRTUAL base of
+    // every sub-interface: static_cast<SUBINTERFACE*>(Core::IUnknown*) is illegal
+    // in C++ when the base is virtual.  Instead:
+    //   base  — upcast SUBINTERFACE*→Core::IUnknown* (always valid, used for Release)
+    //   typed — original SUBINTERFACE* stored as void* (cast back on retrieval)
+    struct SubIfaceCacheEntry {
+        Core::IUnknown* base  { nullptr };
+        void*           typed { nullptr };
+    };
+    mutable std::mutex                          _subIfaceMutex;
+    mutable std::map<uint32_t, SubIfaceCacheEntry> _subInterfaceCache;
 
     // Swaps cache out under _subIfaceMutex, releases proxies outside the lock.
     void _releaseSubInterfaceCache()
     {
-        std::map<uint32_t, Core::IUnknown*> toRelease;
+        std::map<uint32_t, SubIfaceCacheEntry> toRelease;
         {
             std::lock_guard<std::mutex> lock(_subIfaceMutex);
             toRelease.swap(_subInterfaceCache);
         }
         for (auto& kv : toRelease) {
-            if (kv.second) kv.second->Release();
+            if (kv.second.base) kv.second.base->Release();
         }
     }
 
