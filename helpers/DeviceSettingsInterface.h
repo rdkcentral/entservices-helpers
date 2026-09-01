@@ -829,6 +829,7 @@ public:
     {
         if (_service != nullptr) {
             LOGINFO("%s: Close", _logTag.c_str());
+            _releaseSubInterfaceCache();  // release before channel teardown while proxies are still valid
             BaseClass::Close();
             _service->Release();
             _service    = nullptr;
@@ -838,16 +839,17 @@ public:
     }
 
     /**
-     * @brief Acquire an AddRef'd pointer to a DeviceSettings sub-interface.
+     * @brief Return an AddRef'd pointer to a DeviceSettings sub-interface.
      *
-     * Calls QueryInterface<SUBINTERFACE>() on the root IDeviceSettings
-     * COM-RPC proxy.  Returns nullptr if DeviceSettings is not currently
-     * active or if the implementation does not expose that interface.
+     * The first call for a given SUBINTERFACE type performs a QueryInterface on the
+     * root proxy and caches the result.  All subsequent calls return the cached proxy
+     * (AddRef'd), avoiding repeated COM-RPC round-trips when DeviceSettings runs OOP.
+     * Only the sub-interfaces each plugin actually uses are ever QI'd.
+     * The cache is released atomically in Operational(false) / Close().
      *
      * The caller MUST call Release() on the returned pointer exactly once.
      *
      * @tparam SUBINTERFACE  One of Exchange::IDeviceSettingsXxx
-     *                       (e.g. Exchange::IDeviceSettingsVideoDevice)
      *
      * @code
      *   auto* vd = AcquireSubInterface<Exchange::IDeviceSettingsVideoDevice>();
@@ -858,20 +860,48 @@ public:
      * @endcode
      */
     template <typename SUBINTERFACE>
-    SUBINTERFACE* AcquireSubInterface()
+    SUBINTERFACE* AcquireSubInterface() const
     {
+        constexpr uint32_t id = static_cast<uint32_t>(SUBINTERFACE::ID);
+
+        // Fast path: already cached — AddRef under lock to race-safely against _releaseSubInterfaceCache()
+        {
+            std::lock_guard<std::mutex> lock(_subIfaceMutex);
+            const auto it = _subInterfaceCache.find(id);
+            if (it != _subInterfaceCache.end()) {
+                if (it->second) it->second->AddRef();
+                return static_cast<SUBINTERFACE*>(it->second);
+            }
+        }
+
+        // Slow path: first use for this type — QI without the lock so other sub-interface
+        // calls on other threads are not blocked during the COM-RPC round-trip.
         Exchange::IDeviceSettings* root = BaseClass::Interface();
         if (root == nullptr) {
             LOGERR("%s: IDeviceSettings root not available", _logTag.c_str());
             return nullptr;
         }
-        SUBINTERFACE* sub = root->QueryInterface<SUBINTERFACE>();
-        root->Release();   // root reference balanced — sub has its own AddRef from QI
-        if (sub == nullptr) {
-            LOGERR("%s: QueryInterface<0x%08x> returned nullptr",
-                   _logTag.c_str(), static_cast<uint32_t>(SUBINTERFACE::ID));
+        SUBINTERFACE* fresh = root->QueryInterface<SUBINTERFACE>();
+        root->Release();
+
+        if (fresh == nullptr) {
+            LOGERR("%s: QueryInterface<0x%08x> returned nullptr", _logTag.c_str(), id);
+            return nullptr;
         }
-        return sub;
+
+        // Store under lock; if another thread raced and already cached it, discard ours.
+        {
+            std::lock_guard<std::mutex> lock(_subIfaceMutex);
+            auto& slot = _subInterfaceCache[id];
+            if (slot != nullptr) {
+                fresh->Release();
+                fresh = static_cast<SUBINTERFACE*>(slot);
+            } else {
+                slot = fresh;  // cache holds one reference; caller gets a second below
+            }
+            fresh->AddRef();
+        }
+        return fresh;
     }
     /**
      * @brief Load the supported resolutions for a single VideoPort type.
@@ -1631,10 +1661,9 @@ protected:
     /**
      * @brief Called when the DeviceSettings plugin deactivates.
      *
-     * The COM-RPC connection is already severed — do NOT call
-     * AcquireSubInterface() or any interface methods here.
-     *
-     * Use this to invalidate cached handles and reset state.
+     * The COM-RPC connection is already severed — do NOT call any interface
+     * methods here.  AcquireSubInterface() returns nullptr at this point;
+     * use this callback only to invalidate cached handles and reset state.
      */
     virtual void OnDeviceSettingsDeactivated() = 0;
 
@@ -1647,7 +1676,7 @@ private:
     void Operational(const bool upAndRunning) override final
     {
         if (upAndRunning) {
-            LOGINFO("%s: DeviceSettings activated — invalidating stale config", _logTag.c_str());
+            LOGINFO("%s: DeviceSettings activated", _logTag.c_str());
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
                 _configLoaded.store(false, std::memory_order_release);
@@ -1660,7 +1689,10 @@ private:
             // Client plugins must NOT call LoadAllConfigs() — it is an internal helper only.
             OnDeviceSettingsActivated();
         } else {
-            LOGINFO("%s: DeviceSettings deactivated — clearing config and handles", _logTag.c_str());
+            LOGINFO("%s: DeviceSettings deactivated — clearing sub-interfaces and config", _logTag.c_str());
+            // Release cached proxies first so OnDeviceSettingsDeactivated() cannot
+            // accidentally acquire a stale pointer via AcquireSubInterface().
+            _releaseSubInterfaceCache();
             OnDeviceSettingsDeactivated();
             {
                 std::lock_guard<std::mutex> lock(_configMutex);
@@ -1691,6 +1723,25 @@ private:
     mutable std::mutex _configMutex;            ///< guards stores, handle maps and _configLoaded
     mutable std::mutex _initMutex;              ///< serialises concurrent LoadAllConfigs() calls
     std::atomic<bool>  _configLoaded { false }; ///< true once LoadAllConfigs() has committed
+
+    // ── Sub-interface cache ───────────────────────────────────────────────────
+    // Keyed by interface ID.  Populated lazily on first AcquireSubInterface<T>()
+    // call per type and released at Operational(false)/Close().
+    mutable std::mutex                  _subIfaceMutex;     ///< guards _subInterfaceCache
+    mutable std::map<uint32_t, Core::IUnknown*> _subInterfaceCache; ///< one cached AddRef'd proxy per used sub-interface type
+
+    // Swaps cache out under _subIfaceMutex, releases proxies outside the lock.
+    void _releaseSubInterfaceCache()
+    {
+        std::map<uint32_t, Core::IUnknown*> toRelease;
+        {
+            std::lock_guard<std::mutex> lock(_subIfaceMutex);
+            toRelease.swap(_subInterfaceCache);
+        }
+        for (auto& kv : toRelease) {
+            if (kv.second) kv.second->Release();
+        }
+    }
 
     /**
      * @brief Ensures static config is loaded before any accessor is used.
