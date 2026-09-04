@@ -40,7 +40,6 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-helpers \
 -DCMAKE_DISABLE_FIND_PACKAGE_RBus=ON \
 -DCOMCAST_CONFIG=OFF \
 -DRDK_SERVICES_COVERITY=ON \
--DRDK_SERVICES_L1_TEST=ON \
 -DDS_FOUND=ON \
 -DPLUGIN_HELPERS=ON \
 -DCMAKE_CXX_FLAGS="-DEXCEPTIONS_ENABLE=ON \
@@ -71,7 +70,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/entservices-helpers \
 -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog \
 -DENABLE_TELEMETRY_LOGGING -DUSE_IARMBUS \
 -DENABLE_SET_WAKEUP_SRC_CONFIG -DHAS_API_SYSTEM -DHAS_API_POWERSTATE \
--DHAS_RBUS -DUSE_THUNDER_R4=ON -DTHUNDER_VERSION=4 -DTHUNDER_VERSION_MAJOR=4 -DTHUNDER_VERSION_MINOR=4" \
+-DHAS_RBUS  -DTHUNDER_VERSION=4 -DTHUNDER_VERSION_MAJOR=4 -DTHUNDER_VERSION_MINOR=4" \
 
 cmake --build build/entservices-helpers --target install
 echo "======================================================================================"
