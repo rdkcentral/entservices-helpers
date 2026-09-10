@@ -27,7 +27,7 @@
     { \
         response["success"] = success; \
         LOGTRACEMETHODFIN(); \
-        return (WPEFramework::Core::ERROR_NONE); \
+        return (success ? WPEFramework::Core::ERROR_NONE : WPEFramework::Core::ERROR_GENERAL); \
     }
 #define returnIfParamNotFound(param, name) \
     if (!param.HasLabel(name)) \
