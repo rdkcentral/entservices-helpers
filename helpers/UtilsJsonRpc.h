@@ -60,8 +60,6 @@
  * You should be capable of just using "Notify".
  */
 
-#if ((THUNDER_VERSION >= 4) && (THUNDER_VERSION_MINOR == 4))
-
 #define sendNotify(event,params) { \
     std::string json; \
     params.ToString(json); \
@@ -75,23 +73,6 @@
     LOGINFO("Notify %s <***>", event); \
     Notify(event,params); \
 }
-
-#else
-
-#define sendNotify(event,params) { \
-    std::string json; \
-    params.ToString(json); \
-    LOGINFO("Notify %s %s", event, json.c_str()); \
-    for (uint8_t i = 1; GetHandler(i); i++) GetHandler(i)->Notify(event,params); \
-}
-#define sendNotifyMaskParameters(event,params) { \
-    std::string json; \
-    params.ToString(json); \
-    LOGINFO("Notify %s <***>", event); \
-    for (uint8_t i = 1; GetHandler(i); i++) GetHandler(i)->Notify(event,params); \
-}
-
-#endif
 /**
  * DO NOT USE THIS.
  *
@@ -124,7 +105,7 @@
         param = parameters[paramName].String(); \
 }
 #define getFloatParameter(paramName, param) { \
-    if (Core::JSON::Variant::type::FLOAT == parameters[paramName].Content()) \
+    if (Thunder::Core::JSON::Variant::type::FLOAT == parameters[paramName].Content()) \
         param = parameters[paramName].Float(); \
     else \
         try { param = std::stof( parameters[paramName].String()); } \
