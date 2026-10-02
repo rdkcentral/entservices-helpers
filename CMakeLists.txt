@@ -17,14 +17,22 @@
 # limitations under the License.
 ###
 
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.15)
 
 project(EntServicesHelpers)
 
 # FindDS.cmake, FindIARMBus.cmake etc. live in cmake/
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 
-find_package(Thunder REQUIRED)
+find_package(Thunder QUIET)
+
+if(NOT Thunder_FOUND)
+    find_package(WPEFramework QUIET)
+    if(NOT WPEFramework_FOUND)
+        message(FATAL_ERROR "Neither Thunder nor WPEFramework found in sysroot")
+    endif()
+    add_compile_definitions(Thunder=WPEFramework)
+endif()
 
 option(COMCAST_CONFIG "Comcast services configuration" ON)
 if(COMCAST_CONFIG)
