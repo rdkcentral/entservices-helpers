@@ -23,6 +23,13 @@
 
 namespace Thunder
 {
+
+#if defined(THUNDER_VERSION) && (THUNDER_VERSION <= 4)
+        using ThunderDispatcher = ::WPEFramework::PluginHost::ILocalDispatcher;
+#else
+        using ThunderDispatcher = ::Thunder::PluginHost::IDispatcher;
+#endif
+
     namespace Utils
     {
 
@@ -62,7 +69,7 @@ namespace Thunder
             uint32_t mId{0};
             std::string mCallSign{};
             std::string mThunderSecurityToken{};
-            PluginHost::ILocalDispatcher *mDispatcher{nullptr};
+            ThunderDispatcher *mDispatcher{nullptr};
 
             bool ToString(std::string &out, const std::string &in) const
             {
@@ -106,7 +113,7 @@ namespace Thunder
             {
                 if (service)
                 {
-                    mDispatcher = service->QueryInterfaceByCallsign<PluginHost::ILocalDispatcher>(mCallSign);
+                    mDispatcher = service->QueryInterfaceByCallsign<ThunderDispatcher>(mCallSign);
                 }
             }
 
@@ -146,7 +153,9 @@ namespace Thunder
 
                 if (mDispatcher != nullptr)
                 {
-                    if (mDispatcher->Local() != nullptr)
+#if defined(THUNDER_VERSION) && (THUNDER_VERSION <= 4)
+                if (mDispatcher->Local() != nullptr)
+#endif                    
                     {
                         result = mDispatcher->Invoke(channelId, id, mThunderSecurityToken, designator, parametersStr, responseStr);
 

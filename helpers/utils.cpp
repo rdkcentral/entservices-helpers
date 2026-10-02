@@ -35,6 +35,12 @@ using namespace std;
 
 const char* Helpers::IARM::NAME = "Thunder_Plugins";
 
+#if defined(THUNDER_VERSION) && (THUNDER_VERSION <= 4)
+using ThunderMetadata = PluginHost::MetaData;
+#else
+using ThunderMetadata = PluginHost::Metadata;
+#endif
+
 bool Helpers::IARM::isConnected() {
     IARM_Result_t res;
     int isRegistered = 0;
@@ -287,8 +293,8 @@ void Helpers::activatePlugin(const char* callSign)
 bool Helpers::isPluginActivated(const char* callSign)
 {
     string method = "status@" + string(callSign);
-    Core::JSON::ArrayType<PluginHost::Metadata::Service> joResult;
-    uint32_t status = getThunderControllerClient()->Get<Core::JSON::ArrayType<PluginHost::Metadata::Service> >(2000, method.c_str(),joResult);
+    Core::JSON::ArrayType<ThunderMetadata::Service> joResult;
+    uint32_t status = getThunderControllerClient()->Get<Core::JSON::ArrayType<ThunderMetadata::Service> >(2000, method.c_str(),joResult);
     bool pluginActivated = false;
     if (status == Core::ERROR_NONE)
     {
