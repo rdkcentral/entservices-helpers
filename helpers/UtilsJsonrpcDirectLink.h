@@ -62,7 +62,7 @@ namespace Thunder
             uint32_t mId{0};
             std::string mCallSign{};
             std::string mThunderSecurityToken{};
-            PluginHost::IDispatcher* mDispatcher{nullptr};
+            PluginHost::ILocalDispatcher *mDispatcher{nullptr};
 
             bool ToString(std::string &out, const std::string &in) const
             {
@@ -106,7 +106,7 @@ namespace Thunder
             {
                 if (service)
                 {
-                    mDispatcher = service->QueryInterfaceByCallsign<PluginHost::IDispatcher>(mCallSign);
+                    mDispatcher = service->QueryInterfaceByCallsign<PluginHost::ILocalDispatcher>(mCallSign);
                 }
             }
 
@@ -144,16 +144,22 @@ namespace Thunder
                 string responseStr = "";
                 Core::hresult result = Core::ERROR_BAD_REQUEST;
 
-                result = mDispatcher->Invoke(channelId, id, mThunderSecurityToken, designator, parametersStr, responseStr);
-
-                if (result != Core::ERROR_NONE)
+                if (mDispatcher != nullptr)
                 {
-                    LOGERR("Call failed: %s (parameters: %s) error: %d, response: %s", designator.c_str(), parametersStr.c_str(), result, responseStr.c_str());
-                }
+                    if (mDispatcher->Local() != nullptr)
+                    {
+                        result = mDispatcher->Invoke(channelId, id, mThunderSecurityToken, designator, parametersStr, responseStr);
 
-                if (FromString(response, responseStr) == false)
-                {
-                    result = Core::ERROR_GENERAL;
+                        if (result != Core::ERROR_NONE)
+                        {
+                            LOGERR("Call failed: %s (parameters: %s) error: %d, response: %s", designator.c_str(), parametersStr.c_str(), result, responseStr.c_str());
+                        }
+                        
+                        if (FromString(response, responseStr) == false)
+                        {
+                            result = Core::ERROR_GENERAL;
+                        }
+                    }
                 }
 
                 return result;
