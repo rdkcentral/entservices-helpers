@@ -20,7 +20,8 @@
 #pragma once
 
 #include <unordered_map>
-#include "utils.h"
+#include <plugins/plugins.h>
+#include "UtilsJsonRpc.h"
 
 namespace WPEFramework {
 
