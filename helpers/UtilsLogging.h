@@ -21,15 +21,78 @@
 
 #include <syscall.h>
 
-#ifdef __DEBUG__    // XXX: maybe use BUILD_TYPE
-#define LOGTRACE(fmt, ...) do { fprintf(stderr, "[%d] TRACE [%s:%d] %s: " fmt "\n", (int)syscall(SYS_gettid), WPEFramework::Core::FileNameOnly(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__); fflush(stderr); } while (0)
-#else
-#define LOGTRACE(fmt, ...)
-#endif
-#define LOGDBG(fmt, ...) do { fprintf(stderr, "[%d] DEBUG [%s:%d] %s: " fmt "\n", (int)syscall(SYS_gettid), WPEFramework::Core::FileNameOnly(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__); fflush(stderr); } while (0)
-#define LOGINFO(fmt, ...) do { fprintf(stderr, "[%d] INFO [%s:%d] %s: " fmt "\n", (int)syscall(SYS_gettid), WPEFramework::Core::FileNameOnly(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__); fflush(stderr); } while (0)
-#define LOGWARN(fmt, ...) do { fprintf(stderr, "[%d] WARN [%s:%d] %s: " fmt "\n", (int)syscall(SYS_gettid), WPEFramework::Core::FileNameOnly(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__); fflush(stderr); } while (0)
-#define LOGERR(fmt, ...) do { fprintf(stderr, "[%d] ERROR [%s:%d] %s: " fmt "\n", (int)syscall(SYS_gettid), WPEFramework::Core::FileNameOnly(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__); fflush(stderr); } while (0)
+namespace Utils
+{
+namespace Logging
+{
+class Trace {
+public:
+    Trace() = delete;
+    Trace(const Trace& a_Copy) = delete;
+    Trace& operator=(const Trace& a_RHS) = delete;
+    ~Trace() = default;
+
+    explicit Trace(const string& text)
+        : _text(WPEFramework::Core::ToString(text))
+    {
+    }
+    Trace(const TCHAR formatter[], ...)
+    {
+        va_list ap;
+        va_start(ap, formatter);
+        WPEFramework::Trace::Format(_text, formatter, ap);
+        va_end(ap);
+    }
+    inline const char* Data() const
+    {
+        return (_text.c_str());
+    }
+    inline uint16_t Length() const
+    {
+        return (static_cast<uint16_t>(_text.length()));
+    }
+
+private:
+    std::string _text;
+};
+class Debug {
+public:
+    Debug() = delete;
+    Debug(const Debug& a_Copy) = delete;
+    Debug& operator=(const Debug& a_RHS) = delete;
+    ~Debug() = default;
+
+    explicit Debug(const string& text)
+        : _text(WPEFramework::Core::ToString(text))
+    {
+    }
+    Debug(const TCHAR formatter[], ...)
+    {
+        va_list ap;
+        va_start(ap, formatter);
+        WPEFramework::Trace::Format(_text, formatter, ap);
+        va_end(ap);
+    }
+    inline const char* Data() const
+    {
+        return (_text.c_str());
+    }
+    inline uint16_t Length() const
+    {
+        return (static_cast<uint16_t>(_text.length()));
+    }
+
+private:
+    std::string _text;
+};
+}
+}
+
+#define LOGTRACE(fmt, ...) TRACE_GLOBAL(Utils::Logging::Trace, (_T("[%d] " fmt), (int)syscall(SYS_gettid), ##__VA_ARGS__))
+#define LOGDBG(fmt, ...) TRACE_GLOBAL(Utils::Logging::Debug, (_T("[%d] " fmt), (int)syscall(SYS_gettid), ##__VA_ARGS__))
+#define LOGINFO(fmt, ...) TRACE_GLOBAL(WPEFramework::Trace::Information, (_T("[%d] " fmt), (int)syscall(SYS_gettid), ##__VA_ARGS__))
+#define LOGWARN(fmt, ...) TRACE_GLOBAL(WPEFramework::Trace::Warning, (_T("[%d] " fmt), (int)syscall(SYS_gettid), ##__VA_ARGS__))
+#define LOGERR(fmt, ...) TRACE_GLOBAL(WPEFramework::Trace::Error, (_T("[%d] " fmt), (int)syscall(SYS_gettid), ##__VA_ARGS__))
 
 #define LOG_DEVICE_EXCEPTION0() LOGWARN("Exception caught: code=%d message=%s", err.getCode(), err.what());
 #define LOG_DEVICE_EXCEPTION1(param1) LOGWARN("Exception caught" #param1 "=%s code=%d message=%s", param1.c_str(), err.getCode(), err.what());

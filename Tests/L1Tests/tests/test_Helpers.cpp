@@ -17,6 +17,7 @@
  * limitations under the License.
  **/
 
+#include "Module.h"
 #include <gtest/gtest.h>
 #include "UtilsLogging.h"
 
