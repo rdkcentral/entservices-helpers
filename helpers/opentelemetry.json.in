@@ -1,0 +1,15 @@
+{
+    "sampler": "@ENTSERVICES_OPENTELEMETRY_SAMPLER@",
+    "processor": "@ENTSERVICES_OPENTELEMETRY_PROCESSOR@",
+    "exporter": "@ENTSERVICES_OPENTELEMETRY_EXPORTER@",
+    "componentname": "@ENTSERVICES_OPENTELEMETRY_COMPONENT_NAME@",
+    "tracerendpoint": "@ENTSERVICES_OPENTELEMETRY_TRACER_ENDPOINT@",
+    "componentversion": "@ENTSERVICES_OPENTELEMETRY_COMPONENT_VERSION@",
+    "metrics": {
+        "enabled": false
+    },
+    "logger": {
+        "enabled": true,
+        "endpoint": "@ENTSERVICES_OPENTELEMETRY_LOGGER_ENDPOINT@"
+    }
+}
