@@ -35,8 +35,10 @@ cmake_minimum_required(VERSION 3.3)
 set(PLUGIN_NAME Helpers)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
+
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
+find_package(${NAMESPACE}OpenTelemetry REQUIRED)
 
 # ---- Compiled sources -------------------------------------------------------
 set(HELPERS_SOURCES
@@ -67,7 +69,8 @@ target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers)
 target_link_libraries(${MODULE_NAME}
     PRIVATE
         CompileSettingsDebug::CompileSettingsDebug
-        ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+        ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+         ${NAMESPACE}OpenTelemetry::${NAMESPACE}OpenTelemetry)
 
 find_package(DS)
 if(DS_FOUND)
@@ -124,3 +127,5 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
 install(
     FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
     DESTINATION "lib/cmake/${MODULE_NAME}")
+
+include(ThunderOpenTelemetryConfig.cmake)
