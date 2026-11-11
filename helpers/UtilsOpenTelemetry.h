@@ -20,6 +20,7 @@
 #pragma once
 
 #include <core/core.h>
+#include <messaging/messaging.h>
 #include <open_telemetry/open_telemetry.h>
 
 #include <mutex>
@@ -73,7 +74,7 @@ namespace Utils
                 Core::OptionalType<Core::JSON::Error> error;
                 Core::File file(filename);
                 if (file.Open(true) == true) {
-                    telemetryConfig.FromFile(file, error);
+                    telemetryConfig.IElement::FromFile(file, error);
                     if(error.IsSet() == false) {
                         if(telemetryConfig.Exporter == Telemetry::OpenTelemetry::ExporterType::HTTP) {
                             if((telemetryConfig.TracerEndpoint.IsSet() == false) || (telemetryConfig.TracerEndpoint.Value().empty() == true)) {
