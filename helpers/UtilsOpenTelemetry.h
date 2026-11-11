@@ -30,11 +30,14 @@ namespace Utils
     {
 
     private:
-
-        static constexpr TCHAR const* filename = "/etc/thunder/opentelemetry.json";
+#if defined(THUNDER_VERSION) && (THUNDER_VERSION < 5)
+        static constexpr TCHAR const* filename = "/etc/WPEFramework/opentelemetry.json";
+#else
+        static constexpr TCHAR const* filename = "/etc/Thunder/opentelemetry.json";
+#endif
 
     private:
-        string getCollectorEndpoint()
+        static string getCollectorEndpoint()
         {
            string endpoint{_T("http://127.0.0.1:4318")};
 
@@ -46,15 +49,15 @@ namespace Utils
             return endpoint;
         }
 
-        string getTracerEndpoint()
+        static string getTracerEndpoint()
         {
             return  getCollectorEndpoint() + _T("/v1/traces");
         }
-        string getLoggerEndpoint()
+        static string getLoggerEndpoint()
         {
             return  getCollectorEndpoint() + _T("/v1/logs");
         }
-        string getMetricsEndpoint()
+        static string getMetricsEndpoint()
         {
             return  getCollectorEndpoint() + _T("/v1/metrics");
         }
@@ -72,14 +75,14 @@ namespace Utils
                 if (file.Open(true) == true) {
                     telemetryConfig.FromFile(file, error);
                     if(error.IsSet() == false) {
-                        if(telemetryConfig.Exporter == Telemetry::OpenTelemetry::ExporterType:HTTP) {
-                            if(telemetryConfig.TracerEndpoint.IsSet() == false) {
+                        if(telemetryConfig.Exporter == Telemetry::OpenTelemetry::ExporterType::HTTP) {
+                            if((telemetryConfig.TracerEndpoint.IsSet() == false) || (telemetryConfig.TracerEndpoint.Value().empty() == true)) {
                                 telemetryConfig.TracerEndpoint = getTracerEndpoint();
                             }
-                            if(telemetryConfig.Logger.Endpoint.IsSet() == false) {
+                            if((telemetryConfig.Logger.Endpoint.IsSet() == false) || (telemetryConfig.Logger.Endpoint.Value().empty() == true)) {
                                 telemetryConfig.Logger.Endpoint = getLoggerEndpoint();
                             }
-                            if(telemetryConfig.Metrics.Endpoint.IsSet() == false) {
+                            if((telemetryConfig.Metrics.Endpoint.IsSet() == false) || (telemetryConfig.Metrics.Endpoint.Value().empty() == true)) {
                                 telemetryConfig.Metrics.Endpoint = getMetricsEndpoint();
                             }
                         }
@@ -87,12 +90,12 @@ namespace Utils
                     } else {
                         SYSLOG(Logging::Error, (_T("Error parsing Thunder open telemetry file: %s"), error.Value().Message().c_str()));
                     }
-                } else 
+                } else {
                     SYSLOG(Logging::Error, (_T("Could not load Thunder open telemetry file")));
                 }
-            }
+            });
 
-            Telemetry::OpenTelemetry::Instance().Initialize();        
+            Telemetry::OpenTelemetry::Instance().Initialize();
         }
 
         static void uninit()
