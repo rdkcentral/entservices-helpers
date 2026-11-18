@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.5)
 
 # entservices-helpers: common shared utility library
 #
@@ -130,8 +130,15 @@ install(EXPORT ${MODULE_NAME}Targets
     DESTINATION lib/cmake/${MODULE_NAME})
 
 # ---- Generate WPEFrameworkHelpersConfig.cmake --------------------------------
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
+set(HELPERS_CONFIG_CONTENT "include(CMakeFindDependencyMacro)\n")
+if(ENABLE_OPENTELEMETRY)
+    string(APPEND HELPERS_CONFIG_CONTENT "find_dependency(${NAMESPACE}OpenTelemetry)\n")
+endif()
+
+string(APPEND HELPERS_CONFIG_CONTENT
     "include(\"\${CMAKE_CURRENT_LIST_DIR}/${MODULE_NAME}Targets.cmake\")\n")
+
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake" "${HELPERS_CONFIG_CONTENT}")
 
 install(
     FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
