@@ -70,13 +70,13 @@ namespace Utils
         {
             static std::once_flag flag;
             std::call_once(flag, [](){
-                Telemetry::OpenTelemetry::Config telemetryConfig;
+                WPEFramework::Telemetry::OpenTelemetry::Config telemetryConfig;
                 Core::OptionalType<Core::JSON::Error> error;
                 Core::File file(filename);
                 if (file.Open(true) == true) {
                     telemetryConfig.IElement::FromFile(file, error);
                     if(error.IsSet() == false) {
-                        if(telemetryConfig.Exporter == Telemetry::OpenTelemetry::ExporterType::HTTP) {
+                        if(telemetryConfig.Exporter == WPEFramework::Telemetry::OpenTelemetry::ExporterType::HTTP) {
                             if((telemetryConfig.TracerEndpoint.IsSet() == false) || (telemetryConfig.TracerEndpoint.Value().empty() == true)) {
                                 telemetryConfig.TracerEndpoint = getTracerEndpoint();
                             }
@@ -87,7 +87,7 @@ namespace Utils
                                 telemetryConfig.Metrics.Endpoint = getMetricsEndpoint();
                             }
                         }
-                        Telemetry::OpenTelemetry::Configure(telemetryConfig);
+                        WPEFramework::Telemetry::OpenTelemetry::Configure(telemetryConfig);
                     } else {
                         SYSLOG(Logging::Error, (_T("Error parsing Thunder open telemetry file: %s"), error.Value().Message().c_str()));
                     }
@@ -96,12 +96,12 @@ namespace Utils
                 }
             });
 
-            Telemetry::OpenTelemetry::Instance().Initialize();
+            WPEFramework::Telemetry::OpenTelemetry::Instance().Initialize();
         }
 
         static void uninit()
         {
-            Telemetry::OpenTelemetry::Instance().Deinitialize();        
+            WPEFramework::Telemetry::OpenTelemetry::Instance().Deinitialize();        
         }
 
     };
