@@ -6,7 +6,8 @@
     "tracerendpoint": "@ENTSERVICES_OPENTELEMETRY_TRACER_ENDPOINT@",
     "componentversion": "@ENTSERVICES_OPENTELEMETRY_COMPONENT_VERSION@",
     "metrics": {
-        "enabled": false
+        "enabled": false,
+        "endpoint": "@ENTSERVICES_OPENTELEMETRY_METRICS_ENDPOINT@"
     },
     "logger": {
         "enabled": true,
