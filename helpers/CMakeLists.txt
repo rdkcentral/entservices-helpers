@@ -109,7 +109,7 @@ if(ENABLE_OPENTELEMETRY)
     target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}OpenTelemetry::${NAMESPACE}OpenTelemetry)
     include(ThunderOpenTelemetryConfig.cmake)
 else()
-    list(FILTER HELPERS_PUBLIC_HEADERS EXCLUDE REGEX "UtilsOpenTelemetry.h")
+    list(REMOVE_ITEM HELPERS_PUBLIC_HEADERS "UtilsOpenTelemetry.h")
 endif()
 
 
