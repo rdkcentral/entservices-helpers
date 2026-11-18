@@ -106,7 +106,7 @@ file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
 if(ENABLE_OPENTELEMETRY)
     find_package(${NAMESPACE}OpenTelemetry REQUIRED)
     
-    target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}OpenTelemetry::${NAMESPACE}OpenTelemetry)
+    target_link_libraries(${MODULE_NAME} PUBLIC ${NAMESPACE}OpenTelemetry::${NAMESPACE}OpenTelemetry)
     include(ThunderOpenTelemetryConfig.cmake)
 else()
     list(REMOVE_ITEM HELPERS_PUBLIC_HEADERS "UtilsOpenTelemetry.h")
