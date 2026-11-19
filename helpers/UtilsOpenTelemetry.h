@@ -70,6 +70,8 @@ namespace Utils
         {
             static std::once_flag flag;
             std::call_once(flag, [](){
+                namespace Core = WPEFramework::Core;
+                namespace Logging = WPEFramework::Logging;
                 WPEFramework::Telemetry::OpenTelemetry::Config telemetryConfig;
                 Core::OptionalType<Core::JSON::Error> error;
                 Core::File file(filename);
