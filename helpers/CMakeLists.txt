@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.3)
 
 # entservices-helpers: common shared utility library
 #
@@ -104,14 +104,10 @@ file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
 )
 
 if(ENABLE_OPENTELEMETRY)
-    find_package(${NAMESPACE}OpenTelemetry REQUIRED)
-    
-    target_link_libraries(${MODULE_NAME} PUBLIC ${NAMESPACE}OpenTelemetry::${NAMESPACE}OpenTelemetry)
     include(ThunderOpenTelemetryConfig.cmake)
 else()
     list(REMOVE_ITEM HELPERS_PUBLIC_HEADERS "UtilsOpenTelemetry.h")
 endif()
-
 
 # Install each header into the mirror subdirectory under the install prefix so
 # that the full directory tree is preserved (e.g. WebSockets/JsonRpc/Request.h
@@ -130,15 +126,8 @@ install(EXPORT ${MODULE_NAME}Targets
     DESTINATION lib/cmake/${MODULE_NAME})
 
 # ---- Generate WPEFrameworkHelpersConfig.cmake --------------------------------
-set(HELPERS_CONFIG_CONTENT "include(CMakeFindDependencyMacro)\n")
-if(ENABLE_OPENTELEMETRY)
-    string(APPEND HELPERS_CONFIG_CONTENT "find_dependency(${NAMESPACE}OpenTelemetry)\n")
-endif()
-
-string(APPEND HELPERS_CONFIG_CONTENT
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
     "include(\"\${CMAKE_CURRENT_LIST_DIR}/${MODULE_NAME}Targets.cmake\")\n")
-
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake" "${HELPERS_CONFIG_CONTENT}")
 
 install(
     FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE_NAME}Config.cmake"
