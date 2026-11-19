@@ -17,16 +17,6 @@
 
 cmake_minimum_required(VERSION 3.3)
 
-# entservices-helpers: common shared utility library
-#
-# Compiled sources:
-#   - Module.cpp           : Thunder MODULE_NAME_DECLARATION
-#   - WebSockets/JsonRpc/Notification.cpp
-#   - WebSockets/JsonRpc/Request.cpp
-#   - WebSockets/JsonRpc/Response.cpp
-#
-# WSEndpoint.cpp is a template implementation included by its header — NOT compiled standalone.
-#
 # All .h files (including subdirectories) are installed as public headers so
 # downstream repos can use:
 #   find_package(WPEFrameworkHelpers REQUIRED)
@@ -38,50 +28,13 @@ set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
-# ---- Compiled sources -------------------------------------------------------
-set(HELPERS_SOURCES
-    Module.cpp
-    utils.cpp
-    #    WebSockets/JsonRpc/Notification.cpp
-    # WebSockets/JsonRpc/Request.cpp
-    #WebSockets/JsonRpc/Response.cpp
-)
-
-add_library(${MODULE_NAME} SHARED ${HELPERS_SOURCES})
-
-set_target_properties(${MODULE_NAME} PROPERTIES
-    CXX_STANDARD 14
-    CXX_STANDARD_REQUIRED YES)
-
+add_library(${MODULE_NAME} INTERFACE)
 
 # Public include: the helpers/ root (and subdirs) — consumers get all headers
 target_include_directories(${MODULE_NAME}
-    PUBLIC
+    INTERFACE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-	#   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/WebSockets>
         $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers>)
-	# $<INSTALL_INTERFACE:include/${STORAGE_DIRECTORY}/helpers/WebSockets>)
-
-target_compile_definitions(${MODULE_NAME} PRIVATE MODULE_NAME=Plugin_Helpers)
-
-target_link_libraries(${MODULE_NAME}
-    PRIVATE
-        CompileSettingsDebug::CompileSettingsDebug
-        ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
-
-find_package(DS)
-if(DS_FOUND)
-    target_include_directories(${MODULE_NAME} PRIVATE ${DS_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PRIVATE ${DS_LIBRARIES})
-endif(DS_FOUND)
-
-find_package(IARMBus)
-if(IARMBUS_FOUND)
-    find_path(IARMSYS_INCLUDE_DIRS NAMES sysMgr.h PATH_SUFFIXES rdk/iarmmgrs/sysmgr)
-    target_include_directories(${MODULE_NAME} PRIVATE ${IARMBUS_INCLUDE_DIRS} ${IARMSYS_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PRIVATE ${IARMBUS_LIBRARIES})
-    target_compile_definitions(${MODULE_NAME} PRIVATE HAS_API_POWERSTATE)
-endif(IARMBUS_FOUND)
 
 # ---- Install shared library --------------------------------------------------
 install(TARGETS ${MODULE_NAME}
@@ -98,7 +51,6 @@ file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     "*.h"
     "*.hpp"
-    # "WebSockets/WSEndpoint.cpp"
 )
 
 # Install each header into the mirror subdirectory under the install prefix so
