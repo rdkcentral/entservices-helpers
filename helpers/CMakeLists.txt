@@ -35,6 +35,8 @@ cmake_minimum_required(VERSION 3.3)
 set(PLUGIN_NAME Helpers)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
+option(ENABLE_OPENTELEMETRY "Enable OpenTelemetry support" OFF)
+
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
@@ -100,6 +102,12 @@ file(GLOB_RECURSE HELPERS_PUBLIC_HEADERS
     "*.hpp"
     # "WebSockets/WSEndpoint.cpp"
 )
+
+if(ENABLE_OPENTELEMETRY)
+    include(ThunderOpenTelemetryConfig.cmake)
+else()
+    list(REMOVE_ITEM HELPERS_PUBLIC_HEADERS "UtilsOpenTelemetry.h")
+endif()
 
 # Install each header into the mirror subdirectory under the install prefix so
 # that the full directory tree is preserved (e.g. WebSockets/JsonRpc/Request.h
