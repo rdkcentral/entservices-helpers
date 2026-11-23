@@ -42,23 +42,28 @@ namespace Utils {
 struct IARM {
     static bool init()
     {
+        return init(NAME);
+    }
+
+    static bool init(const char* name)
+    {
         IARM_Result_t res;
         bool result = false;
 
-        if (isConnected()) {
+        if (isConnected(name)) {
             LOGINFO("IARM already connected");
             result = true;
         } else {
             unsigned int retryCount = 0;
             do
             {
-                res = IARM_Bus_Init(NAME);
+                res = IARM_Bus_Init(name);
                 LOGINFO("IARM_Bus_Init: %d", res);
                 if (res == IARM_RESULT_SUCCESS || res == IARM_RESULT_INVALID_STATE /* already inited or connected */) {
                     res = IARM_Bus_Connect();
                     LOGINFO("IARM_Bus_Connect: %d", res);
                     if (res == IARM_RESULT_SUCCESS || res == IARM_RESULT_INVALID_STATE /* already connected or not inited */) {
-                        result = isConnected();
+                        result = isConnected(name);
                         LOGERR("ARM_Bus_Connect result: %d res: %d retryCount :%d ",result, res, retryCount);
                     } else {
                         LOGERR("IARM_Bus_Connect failure:result :%d res: %d retryCount :%d ",result, res, retryCount);
@@ -77,9 +82,14 @@ struct IARM {
 
     static bool isConnected()
     {
+        return isConnected(NAME);
+    }
+
+    static bool isConnected(const char* name)
+    {
         IARM_Result_t res;
         int isRegistered = 0;
-        res = IARM_Bus_IsConnected(NAME, &isRegistered);
+        res = IARM_Bus_IsConnected(name, &isRegistered);
         LOGINFO("IARM_Bus_IsConnected: res:%d  isRegistered (%d)", res, isRegistered);
 
         return (isRegistered == 1);
