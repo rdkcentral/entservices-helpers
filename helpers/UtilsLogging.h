@@ -21,6 +21,8 @@
 
 #include <syscall.h>
 
+#include <messaging/messaging.h>
+
 namespace Utils
 {
 namespace Logging
