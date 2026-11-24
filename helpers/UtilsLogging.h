@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <core/Trace.h>
 #include <syscall.h>
 
 namespace Utils
