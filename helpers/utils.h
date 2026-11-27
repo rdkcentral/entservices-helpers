@@ -77,7 +77,7 @@ template<typename T> inline T clamp(T x, T lo, T hi) { return max(min(x, hi), lo
     { \
         response["success"] = success; \
         LOGTRACEMETHODFIN(); \
-        printf("kykumar return response always error none");
+        printf("kykumar return response always error none"); \
         return (Core::ERROR_NONE); \
     }
 
